@@ -107,14 +107,14 @@ representation, the entry class, and the named loss if there is one.
 ### 5.2 Three entry classes
 
 Exact: the round trip returns the same gram value. Lossy: information is lost and the entry names the loss kind
-(precision of an integer, the integer-versus-decimal distinction, key order, the kind of a measurement's magnitude). Unsupported: the
+(`precision` of a decimal, or the `kind` of a number, as in the integer-versus-decimal distinction). Unsupported: the
 native language has no counterpart and the entry says whether the conversion fails or produces a wrapper (5.5).
 
 ### 5.3 What the tables are expected to record
 
 Candidate entries, from SPIKE-001, that the first tables must settle: a 64-bit or larger integer in TypeScript; the
 integer-versus-decimal distinction in TypeScript; a range, a measurement, a big integer, a big decimal and a tagged string in each
-language; the key order of a map in each language (the model sorts keys and has no repeated keys, RFC-001 7.2); the temporal, point and UUID types that the known
+language; the native map type in each language (the model's maps are unordered with unique keys, RFC-001 7.2); the temporal, point and UUID types that the known
 tags interpret.
 
 ### 5.4 Loss as data
@@ -175,9 +175,9 @@ it.
 
 7.1. What are the loss kinds (precision, kind, order, spelling, and others), and is the set closed?
 
-Decided 2026-11-14: the loss kinds are `precision` (digits are lost, as when an integer past 2^53 or a `big_decimal`
-becomes a 64-bit float), `kind` (the value's kind changes, as when `1.0` arrives as the integer `1`) and `order` (key
-order is not kept, as when a JavaScript object moves integer-like keys first). The set is closed: a further loss kind
+Decided 2026-11-14: the loss kinds are `precision` (digits are lost, as when a `big_decimal` becomes a 64-bit float) and
+`kind` (the value's kind changes, as when `1.0` arrives as the integer `1`). A third, `order`, was dropped the same day
+(see 7.8): a map is unordered, so a host that reorders keys loses nothing. The set is closed: a further loss kind
 needs an ADR, so a consumer can match every kind. A value that a host cannot hold at all is not a loss; its entry is
 unsupported and the conversion fails with a diagnostic. Spelling is not a loss kind, because the model keeps none
 (RFC-001 7.1). The kind `structure` is added only if a decision on 7.6 maps ranges or measurements to generic forms.
@@ -228,6 +228,11 @@ mapping entry and no loss concerns it; only the writer's choice of a bare word o
 
 7.8. Which native map type is used in each language (a JavaScript object or `Map`, a Python `dict`, a Rust sorted
 map), and how is key order reported, given that the model's maps are unordered with keys sorted (RFC-001 7.2)?
+
+Decided 2026-11-14: Rust uses `BTreeMap<String, T>`, Python a `dict` filled in key order, and TypeScript a plain object with
+a null prototype (so `__proto__` and `constructor` are ordinary keys). Key order is never reported, because a map is
+unordered (RFC-001 7.2) and a host that reorders keys, such as a JavaScript object moving `"2"` first, changes nothing
+the model means. That removed the `order` loss kind of 7.1.
 
 7.9. Which native values can be written as gram (5.6), and how is an unwritable value reported?
 
