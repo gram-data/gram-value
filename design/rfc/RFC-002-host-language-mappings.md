@@ -1,9 +1,9 @@
 ---
 id: RFC-002
 title: Host-Language Mappings and Loss Reporting
-status: review
+status: accepted
 created: 2026-11-14
-adrs: [ADR-001]
+adrs: [ADR-001, ADR-006]
 ---
 
 # RFC-002: Host-Language Mappings and Loss Reporting
@@ -286,4 +286,5 @@ not the mapping (6.5).
 ## 8. ADRs
 
 - ADR-001: The Conformance Corpus Is Gram Text (uses the entry classes and loss kinds)
-- Related, not yet resolving a question here: ADR-004 (the interpreted tag types are defined per language by these mappings, 7.10) and ADR-005 (the result shape; the path format is 7.2).
+- ADR-006: Host-Language Mappings, Loss Reporting and the Rust Conversions (resolves questions 7.1 to 7.6 and 7.8 to 7.15)
+- Related: ADR-004 (the interpreted tag types are defined per language by these mappings, 7.10) and ADR-005 (the result shape; the path format is 7.2).
