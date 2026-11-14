@@ -1,0 +1,8 @@
+ts-native n=1000: create 0.0081 ms, collect 0.0000 ms, map 0.0074 ms, read 0.0073 ms, text 0.0287 ms, pipeline(create+collect+map+read) 0.0228 ms [0.023 us/value] (sink 78596525)
+ts-wasm-handles (callback map) n=1000: create 0.0922 ms, collect 0.0508 ms, map 0.3197 ms, read 0.1497 ms, text 0.0575 ms, pipeline(create+collect+map+read) 0.6124 ms [0.612 us/value] (sink 78596525)
+ts-wasm-handles (builtin map) n=1000: create 0.0833 ms, collect 0.0486 ms, map 0.0110 ms, read 0.1462 ms, text 0.0536 ms, pipeline(create+collect+map+read) 0.2890 ms [0.289 us/value] (sink 78596525)
+ts-wasm-json n=1000: create 0.0080 ms, collect 0.0437 ms, map 0.2310 ms, read 0.0955 ms, text 0.0288 ms, pipeline(create+collect+map+read) 0.3782 ms [0.378 us/value] (sink 78596525)
+ts-native n=100000: create 0.9601 ms, collect 0.0000 ms, map 1.0179 ms, read 0.8570 ms, text 3.8632 ms, pipeline(create+collect+map+read) 2.8350 ms [0.028 us/value] (sink 56272375185)
+ts-wasm-handles (callback map) n=100000: create 10.1095 ms, collect 6.1316 ms, map 30.7185 ms, read 14.1578 ms, text 5.5305 ms, pipeline(create+collect+map+read) 61.1175 ms [0.611 us/value] (sink 56272375185)
+ts-wasm-handles (builtin map) n=100000: create 10.1010 ms, collect 6.4224 ms, map 0.9535 ms, read 14.9361 ms, text 5.4963 ms, pipeline(create+collect+map+read) 32.4129 ms [0.324 us/value] (sink 56272375185)
+ts-wasm-json n=100000: create 0.7004 ms, collect 4.8835 ms, map 23.1882 ms, read 11.0170 ms, text 4.0130 ms, pipeline(create+collect+map+read) 39.7892 ms [0.398 us/value] (sink 56272375185)

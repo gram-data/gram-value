@@ -1,0 +1,2 @@
+rust-native n=1000: create 0.0202 ms, collect 0.0000 ms, map 0.0165 ms, read 0.0057 ms, text 0.0766 ms, pipeline(create+collect+map+read) 0.0425 ms [0.042 us/value] (sink 78596525)
+rust-native n=100000: create 1.2308 ms, collect 0.0000 ms, map 0.8293 ms, read 0.3130 ms, text 4.3195 ms, pipeline(create+collect+map+read) 2.3732 ms [0.024 us/value] (sink 86284308617)

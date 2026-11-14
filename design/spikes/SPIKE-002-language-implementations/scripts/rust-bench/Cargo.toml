@@ -1,0 +1,8 @@
+[package]
+name = "rust-bench"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+bench-core = { path = "../core" }

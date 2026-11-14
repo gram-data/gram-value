@@ -1,0 +1,7 @@
+import the extension module: 0.59 ms
+native attribute read (obj.value): 12.4 ns per call
+PyO3 read: v.number(): 18.4 ns per call
+PyO3 read: v.kind(): 13.3 ns per call
+PyO3 read of a string: v.text(): 44.7 ns per call
+native create a dataclass Integer: 35.2 ns per call
+PyO3 create an Integer handle: 48.3 ns per call
