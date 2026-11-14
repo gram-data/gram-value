@@ -262,6 +262,10 @@ instead of defining them. The exact forms are question 7.17.
 
 7.7. Do the text-writing rules live in the model's package or a sibling? (Deferred to an ADR.)
 
+Decided 2026-11-14: in the model's package. Every language package writes canonical text itself, because equality,
+hashing and the total order are defined through it (7.15), the canonical form of strings and the key order of maps
+depend on it (7.2, 7.5), and the conformance corpus's text cases test it in the package that holds the values.
+
 7.8. How are the host-language mappings specified, tested and reported as lossy?
 
 7.9. How does the value type evolve when several projects depend on it? (Deferred to an ADR.)
