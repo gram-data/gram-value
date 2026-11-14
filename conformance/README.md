@@ -5,4 +5,8 @@ description, its canonical gram text, and, per language, the native value it map
 exact, lossy (and how) or unsupported. The parity matrix is generated from the packages' results, so parity is
 measured and not asserted.
 
-Empty until the conformance format is decided (a later RFC and ADR).
+The corpus is gram text (ADR-001): `values.gram`, `text.gram` and `tags.gram` hold the cases, `vocabulary.gram` the
+names a case may use, and `GRAMMAR_VERSION` the tree-sitter-gram version the files are read with. Check the files
+with `gram lint --strict conformance/`. Each package parses them with its own tree-sitter-gram binding and a
+lowering function in its tests; the Rust runner is `rust/tests/conformance.rs`. Mapping cases (`MappingCase`)
+arrive with the host-language mappings.

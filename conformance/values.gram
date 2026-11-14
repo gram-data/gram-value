@@ -1,0 +1,50 @@
+// ValueCase: the package classifies `value` as the kind in `kind` (ADR-001 2.4).
+
+// Integers
+(integer-zero:ValueCase {name: "zero", value: 0, kind: integer})
+(integer-negative:ValueCase {name: "a negative integer", value: -42, kind: integer})
+(integer-negative-zero:ValueCase {name: "negative zero is the integer zero", value: -0, kind: integer})
+(integer-max:ValueCase {name: "largest 64-bit integer", value: 9223372036854775807, kind: integer})
+(integer-min:ValueCase {name: "smallest 64-bit integer", value: -9223372036854775808, kind: integer})
+(integer-above-max:ValueCase {name: "one above the 64-bit range", value: 9223372036854775808, kind: big_integer})
+(integer-below-min:ValueCase {name: "one below the 64-bit range", value: -9223372036854775809, kind: big_integer})
+(integer-beyond-2-53:ValueCase {name: "beyond 2^53 still fits in 64 bits", value: 9007199254740993, kind: integer})
+(integer-hex:ValueCase {name: "hexadecimal is an integer", value: 0x1F, kind: integer})
+(integer-hex-big:ValueCase {name: "hexadecimal beyond 64 bits", value: 0xFFFFFFFFFFFFFFFFFF, kind: big_integer})
+(integer-octal:ValueCase {name: "octal is base 8", value: 010, kind: integer})
+
+// Decimals
+(decimal-simple:ValueCase {name: "a decimal a float holds", value: 0.1, kind: decimal})
+(decimal-trailing-zero:ValueCase {name: "trailing zeros do not matter", value: 1.50, kind: decimal})
+(decimal-whole:ValueCase {name: "a whole decimal is still a decimal", value: 1.0, kind: decimal})
+(decimal-negative-zero:ValueCase {name: "negative zero decimal", value: -0.0, kind: decimal})
+(decimal-large:ValueCase {name: "a large decimal a float holds", value: 1000000000000000000000.0, kind: decimal})
+(decimal-more-digits:ValueCase {name: "more digits than a float holds", value: 0.10000000000000000001, kind: big_decimal})
+(decimal-overflow:ValueCase {name: "beyond the float range", value: 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0, kind: big_decimal})
+(decimal-underflow:ValueCase {name: "below the float range", value: 0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001, kind: big_decimal})
+
+// Booleans and strings
+(boolean-true:ValueCase {name: "true", value: true, kind: boolean})
+(boolean-false:ValueCase {name: "false", value: false, kind: boolean})
+(string-double:ValueCase {name: "double-quoted", value: "text", kind: string})
+(string-single:ValueCase {name: "single-quoted", value: 'text', kind: string})
+(string-backtick:ValueCase {name: "backticked", value: `text`, kind: string})
+(string-symbol:ValueCase {name: "a symbol is a string", value: active, kind: string})
+(string-empty:ValueCase {name: "the empty string", value: "", kind: string})
+
+// Tagged strings, known and unknown
+(tagged-known:ValueCase {name: "a known tag stays a tagged string", value: date`2024-01-15`, kind: tagged})
+(tagged-unknown:ValueCase {name: "an unknown tag", value: ts`string`, kind: tagged})
+
+// Ranges and measurements
+(range-closed:ValueCase {name: "a closed range", value: 1..5, kind: range})
+(range-open-upper:ValueCase {name: "no upper end", value: 1..., kind: range})
+(range-open-lower:ValueCase {name: "no lower end", value: ...5, kind: range})
+(range-measurements:ValueCase {name: "a range of measurements", value: 1.5m..2m, kind: range})
+(measurement-integer:ValueCase {name: "an integer magnitude", value: 5kg, kind: measurement})
+(measurement-decimal:ValueCase {name: "a decimal magnitude", value: 5.0kg, kind: measurement})
+
+// Containers
+(array-empty:ValueCase {name: "the empty array", value: [], kind: array})
+(array-mixed:ValueCase {name: "an array of scalars", value: [1, "two", 3.0], kind: array})
+(map-simple:ValueCase {name: "a map", value: {a: 1, b: [1, 2]}, kind: map})

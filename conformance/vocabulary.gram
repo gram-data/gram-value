@@ -1,0 +1,34 @@
+// The names a conformance case may use (ADR-001 2.5). A name not listed here is an error.
+
+// Value kinds (ADR-002 2.2).
+(integer:Kind)
+(big_integer:Kind)
+(decimal:Kind)
+(big_decimal:Kind)
+(boolean:Kind)
+(string:Kind)
+(tagged:Kind)
+(range:Kind)
+(measurement:Kind)
+(array:Kind)
+(map:Kind)
+
+// Diagnostic codes (spec/results.md).
+(invalid-form:Diagnostic)
+(out-of-range:Diagnostic)
+
+// Outcomes of a TagCase.
+(accepted:Outcome)
+(rejected:Outcome)
+
+// Known tags (ADR-004). Loss kinds and native type names are added with the host mappings (RFC-002).
+(date:Tag)
+(time:Tag)
+(localtime:Tag)
+(datetime:Tag)
+(localdatetime:Tag)
+(duration:Tag)
+(point:Tag)
+(uuid:Tag)
+(week:Tag)
+(weekDate:Tag)

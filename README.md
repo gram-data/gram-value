@@ -11,9 +11,11 @@ built a third. `gram-value` is meant to be the one they share.
 
 ## Status
 
-Just started. There is no code yet: the first work is the design documents under `design/`
-([RFCs](design/rfc/README.md), [ADRs](design/adr/README.md), [spikes](design/spikes/README.md) and
-[notes](design/notes/README.md)); none are written yet. The origin of the project is the note
+Early. The design is written: [RFCs](design/rfc/README.md) and [ADRs](design/adr/README.md) fix the value kinds,
+equality, canonical text, the ten known tags and the native-package strategy, and [`spec/`](spec/README.md) states
+the rules. The Rust package in [`rust/`](rust/) implements them and passes the first
+[conformance cases](conformance/README.md) (about 120). TypeScript and Python come next; the host-language
+mappings (RFC-002) are not designed yet. The origin of the project is the note
 [gram-value: a shared home for gram's data values](https://github.com/relatedb/relate-gram/blob/main/design/notes/2026-11-14-gram-value.md).
 
 ## What it is, and is not
