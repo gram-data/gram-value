@@ -11,7 +11,7 @@ adrs: [ADR-001]
 ## 1. Summary
 
 A gram value is a value in a notation: an integer of any width, a decimal, a measurement such as `5kg`, a range
-such as `1..5`, a symbol, a tagged string, an array or a map. A program wants these as the native values of its
+such as `1..5`, a tagged string, an array or a map. A program wants these as the native values of its
 own language, a JavaScript number or a Python `dict` or a Rust `i64`, and the languages disagree about what they can
 hold. A JavaScript number keeps 53 bits of an integer, no mainstream language has a measurement as a built-in
 value, the ranges that do exist differ from gram's, and an integer-valued decimal such as `1.0` is the same number
@@ -107,7 +107,7 @@ representation, the entry class, and the named loss if there is one.
 ### 5.2 Three entry classes
 
 Exact: the round trip returns the same gram value. Lossy: information is lost and the entry names the loss kind
-(precision of an integer, the integer-versus-decimal distinction, key order, the spelling of a measurement). Unsupported: the
+(precision of an integer, the integer-versus-decimal distinction, key order, the kind of a measurement's magnitude). Unsupported: the
 native language has no counterpart and the entry says whether the conversion fails or produces a wrapper (5.5).
 
 ### 5.3 What the tables are expected to record
@@ -180,7 +180,7 @@ language?
 
 7.3. Where is the loss policy chosen (per call, per consumer, per language), and what is the default?
 
-7.4. In TypeScript, how is an integer beyond 2^53 represented: a number with a recorded loss, a `BigInt` always, or
+7.4. In TypeScript, how is an integer beyond 2^53 (an `integer` or a `big_integer`) represented: a number with a recorded loss, a `BigInt` always, or
 a number when the value is safe and a `BigInt` otherwise?
 
 7.5. In each language, is a gram decimal a float or an exact decimal type where one exists (Python `Decimal`, no
@@ -215,3 +215,4 @@ tree-sitter-gram 0.7.0)?
 ## 8. ADRs
 
 - ADR-001: The Conformance Corpus Is Gram Text (uses the entry classes and loss kinds)
+- Related, not yet resolving a question here: ADR-004 (the interpreted tag types are defined per language by these mappings, 7.10) and ADR-005 (the result shape; the path format is 7.2).

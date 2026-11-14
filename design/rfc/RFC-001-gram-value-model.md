@@ -219,7 +219,7 @@ Decided 2026-11-14: an octal literal is base 8 (`010` is 8, `042` is 34); `019` 
 rejects it as a syntax error. An integer is a signed 64-bit value. An integer outside that range is a separate kind,
 `big_integer`, that holds the exact digits (a sign and decimal digits without leading zeros); an integer that fits in
 64 bits is always `integer`, never `big_integer`, so every value has one form. Hexadecimal and octal literals take no
-sign in the grammar, so only plain integers can be negative.
+sign in the grammar, so only plain integer literals, among the integer forms, can be negative.
 
 7.4. Is a decimal a 64-bit float or an exact decimal? How is a measurement represented (a number and a unit,
 with the spelling kept?), and how is a range represented, including half-open ranges and measurements as ends?
@@ -316,7 +316,7 @@ value the grammar cannot express (an array inside an array) is a reported error,
 
 7.15. What are equality, ordering and hashing for values (`1` and `1.0`, `NaN`, `5kg` and `5.0kg`)?
 
-Decided 2026-11-14: two values are equal by default when they have the same kind and the same canonical text, so `1` is
+Decided 2026-11-14: two values are equal by default when they have the same kind and the same content, compared part by part, which for every value gram can write is the same as equal canonical text (ADR-002 2.5), so `1` is
 not equal to `1.0`, `5kg` is not equal to `5.0kg`, `-0.0` is not equal to `0.0`, and maps are equal whatever order their
 entries were written in. The model rejects `NaN` and infinities at construction (gram cannot write them), so equality is
 total and hashing follows from it. Other equivalence functions (numeric equivalence across kinds, for example) may be
@@ -348,8 +348,7 @@ Decided 2026-11-14:
   `localdatetime` are the same forms with no offset allowed. A consumer that requires an offset applies that in its
   own profile.
 - **`point`.** Two or three numbers (``point`30 10` ``, ``point`30 10 5` ``) with an optional SRID prefix. A bare
-  point has no SRID. Which SRIDs are valid is a consumer's rule. The exact spelling of the SRID prefix is fixed in
-  the specification and its corpus cases, not here.
+  point has no SRID. Which SRIDs are valid is a consumer's rule. The SRID prefix is spelled `SRID=n;` (decided in ADR-004).
 - **Where the forms are defined.** In `gram-value`'s specification (`spec/`), tested by the conformance corpus.
   tree-sitter-gram's well-known-tags document keeps its short list and is changed to link to the specification.
 

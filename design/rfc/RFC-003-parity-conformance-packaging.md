@@ -23,8 +23,8 @@ TypeScript and Python), so a change to the corpus and the code it affects land t
 publishes the packages to each language's registry from one tag, with a version policy that keeps the languages
 in step. Further languages (Go, Swift and Haskell) join by passing the corpus.
 
-The scope and direction are the proposal; the corpus format, the version policy and the release mechanics are left
-to later decisions.
+The scope and direction are the proposal. The corpus format is decided (ADR-001); the version policy, the release
+mechanics and the matrix are left to later decisions.
 
 ## 2. Problem / Motivation
 
@@ -196,16 +196,18 @@ fits.
 
 ## 7. Open Questions
 
-7.1. How does a corpus case describe a value without a parser: a structured description used only in the corpus
+Questions 7.1 to 7.3 are decided. The rest are deferred to later ADRs (the version policy, registries and release, CI cost, the matrix, coverage).
+
+7.1. (Decided in ADR-001: gram text, parsed in each language's tests.) How does a corpus case describe a value without a parser: a structured description used only in the corpus
 (readable, no parser needed, but a second notation next to gram text, in tension with RFC-001 4.4), or gram text
 parsed in tests with each language's tree-sitter-gram binding and a test-only lowering (one notation, but a
 dependency and duplicated lowering code in every language)? `toml-test`, a corpus for another notation, describes
 values as tagged JSON with every value a string.
 
-7.2. How does a case state the expected native value per language: a literal in that language's syntax, evaluated by
+7.2. (Decided in ADR-001: a neutral description.) How does a case state the expected native value per language: a literal in that language's syntax, evaluated by
 the runner; or a neutral description that each runner builds a native value from and compares?
 
-7.3. How is a skip declared, and can the matrix tell an accepted skip from an unreviewed one?
+7.3. (Decided in ADR-001: a per-package `skips.gram`.) How is a skip declared, and can the matrix tell an accepted skip from an unreviewed one?
 
 7.4. How does the corpus stay in step with tree-sitter-gram's corpus when the grammar changes: derived cases,
 a script that flags new grammar cases, or a manual review?
@@ -233,7 +235,7 @@ only their own tests?
 
 7.13. What is the corpus's coverage target: every grammar value form, every known tag, every mapping entry?
 
-7.14. How does a package obtain the corpus (a path in the repository, a vendored copy, a published artifact), and
+7.14. (Partly answered by ADR-001 2.3: the grammar version is pinned in `conformance/GRAMMAR_VERSION`.) How does a package obtain the corpus (a path in the repository, a vendored copy, a published artifact), and
 how is a corpus version tied to a package version?
 
 7.15. Does the parity matrix come from each package's own CI or from a central harness (6.7)?
@@ -241,4 +243,4 @@ how is a corpus version tied to a package version?
 ## 8. ADRs
 
 - ADR-001: The Conformance Corpus Is Gram Text (resolves questions 7.1, 7.2 and 7.3)
-- ADR-005: Native Packages, a Plain Sum Type and a Common Result Shape (every package is native; parity rests on the corpus)
+- ADR-005: Native Packages, a Plain Sum Type and a Common Result Shape (parity rests on the corpus, ADR-005 2.3)
