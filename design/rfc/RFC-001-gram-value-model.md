@@ -24,24 +24,31 @@ tools stop rebuilding this model. The model describes all gram values; a consume
 rejects the rest itself, and the model does not name those subsets. The tree-sitter-gram grammar and test
 corpus remain the authority on what text is a gram value.
 
-This RFC settles the scope and the direction. The representation choices, the mapping tables and the
-packaging are decided in later documents.
+The proposal fixes the scope and the direction; the representation choices, the mapping tables and the
+packaging are left to later decisions.
 
 ## 2. Problem / Motivation
 
-**The value model is built several times, and the copies disagree.** The pattern-rs repository has two: a
-`Value` with ten variants in `pattern-core/src/subject.rs` (integer, decimal, boolean, string, symbol,
-tagged string, array, map, range, measurement), and a second in `gram-codec/src/value.rs`. The relate-gram
-repository, which loads gram into the Relate graph database, has a third (`PropValue`) with five variants,
-because it accepts only the values that become a Cypher type. A fourth is the Haskell `Value` in pattern-hs (`libs/subject/src/Subject/Value.hs`), the reference for
-pattern-rs, and the TypeScript and Python packages of pattern-rs each define another
-(`typescript/packages/pattern/src/value.ts`, `python/packages/relateby/relateby/pattern/_value.py`). What each one preserves differs, and a file can mean different things to different tools.
+**The value model is built several times, and the copies disagree.** pattern-rs, a Rust library of pattern and
+graph data structures built on gram, has two: a `Value` with ten variants in `pattern-core/src/subject.rs`
+(integer, decimal, boolean, string, symbol, tagged string, array, map, range, measurement), and a second in
+`gram-codec/src/value.rs`. relate-gram, which loads gram into the Relate graph database, has a third
+(`PropValue`) with five variants, because it accepts only the values that map onto a Cypher type (Cypher is
+the database's query language). A fourth is the Haskell `Value` in pattern-hs, the Haskell reference
+implementation that pattern-rs ports (`libs/subject/src/Subject/Value.hs`), and the TypeScript and Python
+packages of pattern-rs each define another (`typescript/packages/pattern/src/value.ts`,
+`python/packages/relateby/relateby/pattern/_value.py`). What each one preserves differs, and a file can mean
+different things to different tools.
 
-**Existing models lose what a consumer needs.** relate-gram's SPIKE-003 compared the parsers of pattern-rs
-with the grammar's syntax tree. A map is a `HashMap` in pattern-core, so key order and repeated keys are lost;
-a measurement is a unit and an `f64`, so `5kg` and `5.0kg` are one value; an octal literal is read as a decimal
-number (`010` is 10) although the grammar names it an octal; a tag on a fenced string was dropped. A tool that
-must report exactly what a file says cannot be built on them.
+**Existing models lose what a consumer needs.** SPIKE-001 compared seven representations. The ten-kind shape is
+shared, but the numeric types are not (integers are unbounded in Haskell and Python, 64-bit in Rust and
+53-bit in TypeScript); ranges and measurements are held as floats, so a decimal measurement or a range of
+measurements cannot be represented and an open-ended range cannot be written back; pattern-rs's tree-sitter
+path drops a property it cannot lower (an integer past 64 bits, a decimal range) and still reports success; a
+map's key order and repeated keys are lost (a `HashMap` in pattern-core); and an octal literal (`010`) is read
+as ten by one implementation and refused by another although the grammar names it an octal. The TypeScript and
+Python values reach Rust through JSON with ad-hoc tags, so a map with a key `type` whose value is `symbol` is
+misread as a symbol. A tool that must report exactly what a file says cannot be built on these models.
 
 **Value interpretation is work every tool repeats.** relate-gram wrote validators for eight tags (`date`,
 `time`, `localtime`, `datetime`, `localdatetime`, `duration`, `point`, `uuid`), with their ISO 8601 and extended
@@ -49,13 +56,16 @@ well-known-text forms. Nothing in them is specific to a database, and another to
 a gram file would write them again.
 
 **Consumers support different subsets, and a shared model must not decide which.** relate-gram supports
-scalars and arrays of one kind. pattern-rs supports all of gram. Tools for ontologies and schemas (pattern-rs's
-`pato`, gram-ontology) use tagged strings as constraint dialects (`ts`, `re`, `zod`, `cypher`, `pydantic`) that
-no value layer should interpret.
+scalars and arrays of one kind. pattern-rs models every kind but cannot represent or write several of them
+(decimal ranges, ranges of measurements, open-ended ranges, decimal measurements), so it is broader than
+relate-gram without covering all of gram. Tools for ontologies and schemas (`pato`, the command-line tool in
+pattern-rs, and gram-ontology, a planned extension of the `gram` command that checks ontology files) use
+tagged strings as constraint dialects (`ts`, `re`, `zod`, `cypher`, `pydantic`) that no value layer should
+interpret.
 
 **Host languages need a stated correspondence.** A gram integer is wider than a JavaScript number, a gram range
-has no Python counterpart, and a measurement has none in most languages. Each tool currently invents its own
-mapping and does not say what it loses.
+has no Python counterpart, and a measurement has none in most languages. Each tool invents its own
+mapping, and the TypeScript and Python values cross from Rust as JSON with ad-hoc tags (SPIKE-001).
 
 ## 3. Goals
 
@@ -65,8 +75,9 @@ gram text agree on its values.
 3.2. Define the canonical gram text of every value, so that a value written by any language reads back as the
 same value and the same text is produced everywhere.
 
-3.3. Keep known-tag interpretation (dates, points, UUIDs and any later tag) as a layer separate from the value,
-extensible by a consumer, with tags it does not know passing through untouched.
+3.3. Keep known-tag interpretation (dates, points, UUIDs and any later tag) as a layer separate from the value.
+A consumer can register interpretations for tags without changing the model, and a tag with no interpretation
+round-trips unchanged.
 
 3.4. Document, for each first-tier language (Rust, TypeScript, Python), how every value maps to a native value,
 and mark each mapping exact, lossy (stating what is lost) or unsupported, with loss detectable by the consumer.
@@ -103,15 +114,15 @@ it was written stay in the parser's syntax tree. That keeps the model small and 
 
 ### 5.2 Classification, not subsets
 
-The model offers the means to ask what a value is (its kind, whether it is a scalar, whether an array holds one
-kind), so a consumer can implement its own subset in a few lines. It ships no consumer's subset, so adding a
-consumer never changes the model.
+Candidate direction: the model would offer the means to ask what a value is (its kind, whether it is a scalar, whether an array holds one
+kind), so a consumer can implement its own subset in a few lines. It would ship no consumer's subset, so adding a
+consumer would never change the model.
 
 ### 5.3 Tagged strings stay a tag and a content string
 
-A tagged string is `{tag, content}` in the model. A registry of known tags, kept as an optional layer,
-interprets the ones it knows and validates their content forms. A consumer can add tags to the registry or
-decline to use it.
+Candidate direction: a tagged string is `{tag, content}` in the model. A registry of known tags, kept as an
+optional layer, would interpret the ones it knows and validate their content forms. A consumer could add tags
+to the registry or decline to use it.
 
 ### 5.4 Canonical text writing
 
@@ -156,6 +167,15 @@ pattern-rs relates to pattern-hs. Rejected for now: it makes parity depend on on
 corpus gives every language the same standing. Whether the Haskell implementation is a peer or a reference is
 an open question (7.10).
 
+6.6. **Fix pattern-core's `Value` in place and have the others depend on pattern-core.** Rejected: pattern-core
+also holds the pattern and subject machinery, so a consumer that only needs values (relate-gram, a schema tool)
+inherits it and pattern-rs's release cadence, and the TypeScript and Python packages would still reach it
+through the JSON boundary.
+
+6.7. **Define the model once in a schema and generate each language's types and conformance cases.** Not
+rejected here: it is the main candidate for keeping parity without a shared core, and question 7.11 counts a
+generator among the ways a language package can be built.
+
 ## 7. Open Questions
 
 7.1. Does a value record only what it means, or also how it was written (hexadecimal versus decimal, quoting
@@ -173,18 +193,26 @@ with the spelling kept?), and how is a range represented, including half-open ra
 
 7.6. How does a consumer extend the known-tag registry, and how does it state that it supports only some tags?
 
-7.7. Do the text-writing rules live in the model's package or a sibling?
+7.7. Do the text-writing rules live in the model's package or a sibling? (Deferred to an ADR.)
 
 7.8. How are the host-language mappings specified, tested and reported as lossy?
 
-7.9. How does the value type evolve when several projects depend on it?
+7.9. How does the value type evolve when several projects depend on it? (Deferred to an ADR.)
 
 7.10. Is the Haskell implementation (pattern-hs) a peer of the other languages or their reference?
 
-7.11. Per language, is the package native or a binding to a shared core, and what does a user pay to cross
-the boundary?
+7.11. Per language, is the package native, a binding to a shared core, or generated from a schema, and what does
+a user pay to cross the boundary?
 
 7.12. The grammar allows `::` before a label or key. Does that mean anything for a value?
+
+7.13. Does the model include null? TypeScript and Python add one, and gram has no null literal.
+
+7.14. What is a record (an element's property map) in this model, and do property keys and their name quoting
+belong to it or to a graph layer?
+
+7.15. What are equality, ordering and hashing for values (`1` and `1.0`, `NaN`, a symbol and a string with the
+same text)?
 
 ## 8. ADRs
 
