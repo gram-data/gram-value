@@ -3,7 +3,7 @@ id: RFC-001
 title: A Shared Model of Gram's Data Values
 status: draft
 created: 2026-11-14
-adrs: []
+adrs: [ADR-002, ADR-003, ADR-004, ADR-005]
 ---
 
 # RFC-001: A Shared Model of Gram's Data Values
@@ -355,4 +355,7 @@ Decided 2026-11-14:
 
 ## 8. ADRs
 
-_(populated automatically as `/adr-create` links ADRs to this RFC)_
+- ADR-002: The Eleven Value Kinds, Their Meaning and Equality (resolves questions 7.1 to 7.5, 7.9, 7.12 to 7.15)
+- ADR-003: Canonical Gram Text for Every Value (resolves 7.5 and 7.7)
+- ADR-004: Ten Known Tags as Plain Interpretation Functions (resolves 7.6 and 7.17)
+- ADR-005: Native Packages, a Plain Sum Type and a Common Result Shape (resolves 7.10, 7.11, 7.16)
