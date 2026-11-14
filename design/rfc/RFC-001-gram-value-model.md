@@ -251,14 +251,12 @@ Decided 2026-11-14: `gram-value` ships a fixed standard set of known tags (the e
 by later decisions), each with its own interpretation function, and one convenience function that dispatches over the
 set. There is no registry object. A consumer extends by writing its own function over a plain `{tag, content}` value,
 and supports fewer tags by calling only the ones it wants. The forms the generic
-layer accepts are the ones tree-sitter-gram documents as its well-known tags (`date`, `datetime` and `time` as ISO 8601,
-with the offset and seconds optional as ISO allows), to be extended in that document with the other tags (`localtime`,
-`localdatetime`, `duration`, `point`, `uuid`) so that the authority and `gram-value` agree. The grammar's own corpus
-writes ``time`17:35` `` and ``point`30 10` ``, and those forms must be accepted. Stricter rules that depend on a
-consumer (relate-gram's required offset, its points with an SRID and its four SRIDs, a latitude limit, whether a zone
-name is known) belong to the consumer's profile and are applied to the interpreted result. relate-gram's ADR-011,
-which defined its forms before the authority's table was read, is to be amended so that it narrows the generic forms
-instead of defining them. The exact forms are question 7.17.
+layer accepts are defined in `gram-value`'s specification (question 7.17), consistent with tree-sitter-gram's
+corpus, which writes ``time`17:35` `` and ``point`30 10` ``; those forms must be accepted. Stricter rules that depend
+on a consumer (relate-gram's required offset, its points with an SRID and its four SRIDs, a latitude limit, whether
+a zone name is known) belong to the consumer's profile and are applied to the interpreted result. relate-gram's
+ADR-011, which defined its forms before the grammar's corpus was read, is to be amended so that it narrows the
+generic forms instead of defining them.
 
 7.7. Do the text-writing rules live in the model's package or a sibling? (Deferred to an ADR.)
 
@@ -339,10 +337,23 @@ Decided 2026-11-14: closed for `gram-value`. Every language package is native (7
 to cross, and operations on values stay plain functions. A pipeline system that pushes operations into a consumer
 such as Relate would belong to that consumer or a separate project, and could start from SPIKE-002.
 
-7.17. What are the exact forms of the known tags, defined in tree-sitter-gram's well-known tags document: `time`
-(offset and seconds optional?), `localtime`, `localdatetime`, `duration`, `point` (the corpus writes ``point`30 10` ``;
-is an SRID allowed, and how is a third coordinate written?) and `uuid`; and what is the status of the tags `week` and
-`weekDate` that the corpus uses?
+7.17. What are the exact forms of the known tags: `time` (offset and seconds optional?), `localtime`, `localdatetime`,
+`duration`, `point` (the corpus writes ``point`30 10` ``; is an SRID allowed, and how is a third coordinate
+written?) and `uuid`; and what is the status of the tags `week` and `weekDate` that the corpus uses?
+
+Decided 2026-11-14:
+- **The set.** Ten known tags: `date`, `time`, `localtime`, `datetime`, `localdatetime`, `duration`, `point`, `uuid`,
+  `week` and `weekDate` (the last two as ISO 8601 week forms, ``week`2024W35` `` and ``weekDate`2024W35-5` ``, as the
+  grammar's corpus writes them). Every other tag, `url` and `md` among them, passes through as an unknown tag.
+- **`time` and `datetime`.** The offset is optional and so are the seconds and fraction, as ISO 8601 allows
+  (``time`17:35` ``, ``time`17:42:03.149` ``, ``time`17:42Z` ``, ``time`17:42+01:00` ``). `localtime` and
+  `localdatetime` are the same forms with no offset allowed. A consumer that requires an offset applies that in its
+  own profile.
+- **`point`.** Two or three numbers (``point`30 10` ``, ``point`30 10 5` ``) with an optional SRID prefix. A bare
+  point has no SRID. Which SRIDs are valid is a consumer's rule. The exact spelling of the SRID prefix is fixed in
+  the specification and its corpus cases, not here.
+- **Where the forms are defined.** In `gram-value`'s specification (`spec/`), tested by the conformance corpus.
+  tree-sitter-gram's well-known-tags document keeps its short list and is changed to link to the specification.
 
 ## 8. ADRs
 
