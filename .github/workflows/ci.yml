@@ -76,8 +76,30 @@ jobs:
           path: python/target/conformance-results.gram
           if-no-files-found: error
 
+  go:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+      - name: gofmt
+        run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test ./...
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: results-go
+          path: go/target/conformance-results.gram
+          if-no-files-found: error
+
   corpus:
-    needs: [rust, typescript, python]
+    needs: [rust, typescript, python, go]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
@@ -108,7 +130,8 @@ jobs:
           python3 scripts/gen-parity-matrix.py --out parity.md \
             rust=results/results-rust/conformance-results.gram \
             typescript=results/results-typescript/conformance-results.gram \
-            python=results/results-python/conformance-results.gram
+            python=results/results-python/conformance-results.gram \
+            go=results/results-go/conformance-results.gram
       - name: Publish the matrix to the job summary
         if: ${{ !cancelled() }}
         run: cat parity.md >> "$GITHUB_STEP_SUMMARY"

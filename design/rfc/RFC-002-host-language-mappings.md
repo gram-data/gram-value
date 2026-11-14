@@ -94,7 +94,7 @@ consumer's work.
 
 4.4. Silent coercion beyond the table. A conversion not in the table is an error, not a best guess.
 
-4.5. Mappings for Go, Swift and Haskell in the first round. They follow the first tier.
+4.5. Mappings for Go, Swift and Haskell in the first round. They follow the first tier (Go's is in ADR-006 2.11).
 
 ## 5. Proposed Approach (high-level)
 

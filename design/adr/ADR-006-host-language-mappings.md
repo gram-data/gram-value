@@ -79,6 +79,10 @@ Where a native type cannot hold a value, a consumer keeps the package's own `Val
 
 The mapping adds these codes to the vocabulary: `precision` and `kind` (losses), `type-mismatch`, `out-of-range` (also used by ADR-004 for tags), `unsupported` and `not-finite`.
 
+### 2.11 Go (added 2026-11-14)
+
+Go, a next-tier language, follows the same rules. Its native types: `integer` becomes `int64`; `big_integer` a `*big.Int`; `decimal` a `float64`; `big_decimal` is unsupported (the standard library has `math/big` but no decimal, and a `*big.Rat` is an unusual way to hold one, so the package's own `BigDecimalValue` stays the value, as in Rust); `boolean` a `bool`; `string` a `string`; `tagged`, `range` and `measurement` the package's `Tagged`, `Range` and `Measurement`; `array` a `[]any`; `map` a `map[string]any` (Go maps are unordered, as the model's are); the known tags the package's typed values (`Date`, `Time`, `DateTime`, `Duration`, `Point`, `UUID`, `Week`). Every Go entry is exact or unsupported, so Go never reports a loss, and `ToNative` returns `(any, error)` where a failure is a `Diagnostics` value holding every problem with its path. Writing accepts `bool`, `string`, every integer type (a `uint64` past the signed range becomes a `big_integer`), `*big.Int`, finite `float64`, the package types, and slices, arrays and string-keyed maps of those; `nil`, `NaN`, the infinities, `float32` (convert it explicitly), a non-string key, a function and a struct fail with every problem listed.
+
 ## 3. Alternatives Considered
 
 3.1. **Fail on any loss.** Rejected: a viewer wants the value and what changed, and a validator wants every loss, not the first.

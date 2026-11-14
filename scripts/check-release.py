@@ -3,6 +3,7 @@
 
     scripts/check-release.py                    check that every package shares the corpus's major.minor
     scripts/check-release.py rust-v0.1.0        also check that a release tag matches its package's version
+                                                (tags: rust-vX.Y.Z, typescript-vX.Y.Z, python-vX.Y.Z, go/vX.Y.Z)
 
 Prints the package and version of a valid tag as `package=<name>` and `version=<x.y.z>` lines (for
 GitHub Actions outputs) and exits with 1 and a message on a problem.
@@ -14,8 +15,8 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PACKAGES = ("rust", "typescript", "python")
-TAG = re.compile(r"^(?P<package>rust|typescript|python)-v(?P<version>\d+\.\d+\.\d+)$")
+PACKAGES = ("rust", "typescript", "python", "go")
+TAG = re.compile(r"^(?:(?P<package>rust|typescript|python)-v|(?P<gopackage>go)/v)(?P<version>\d+\.\d+\.\d+)$")
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 
 
@@ -28,6 +29,9 @@ def package_version(package, root=ROOT):
         return tomllib.loads((root / "rust" / "Cargo.toml").read_text())["package"]["version"]
     if package == "typescript":
         return json.loads((root / "typescript" / "package.json").read_text())["version"]
+    if package == "go":
+        # Go modules take their version from the tag; go/VERSION holds it for this check.
+        return (root / "go" / "VERSION").read_text().strip()
     return tomllib.loads((root / "python" / "pyproject.toml").read_text())["project"]["version"]
 
 
@@ -51,9 +55,9 @@ def check(tag=None, root=ROOT):
     if tag is not None:
         m = TAG.match(tag)
         if not m:
-            problems.append(f"tag {tag!r} is not <rust|typescript|python>-vMAJOR.MINOR.PATCH")
+            problems.append(f"tag {tag!r} is not <rust|typescript|python>-vX.Y.Z or go/vX.Y.Z")
         else:
-            package, version = m.group("package"), m.group("version")
+            package, version = m.group("package") or m.group("gopackage"), m.group("version")
             parsed = (package, version)
             if package_version(package, root) != version:
                 problems.append(

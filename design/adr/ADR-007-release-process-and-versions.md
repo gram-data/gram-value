@@ -27,7 +27,7 @@ The corpus, in the file `conformance/VERSION`, and every package share a `major.
 | crates.io | `gram-value` | the GitHub organization `gram-data` (a team owner) |
 | npm | `@gram-data/value` | the npm organization `gram-data` |
 | PyPI | `gram-value` | the PyPI organization or maintainers named by the project owner |
-| Go (later) | `github.com/gram-data/gram-value/go` | the repository |
+| Go | `github.com/gram-data/gram-value/go` | the repository |
 | Swift (later) | decided when Swift joins (SwiftPM reads `Package.swift` at the repository root) | the repository |
 | Hackage (later) | `gram-value` | decided when Haskell joins |
 
@@ -35,7 +35,7 @@ The npm package is scoped, like the organization's grammar package `@gram-data/t
 
 ### 2.3 Tags start a release
 
-A release of one package is a tag `<package>-v<major>.<minor>.<patch>` on a commit of `main`: `rust-v0.2.0`, `typescript-v0.2.0`, `python-v0.2.1`. A later Go package uses the tag form Go requires for a module in a subdirectory (`go/v0.2.0`). The tag's version must equal the package's version in its manifest (`Cargo.toml`, `package.json`, `pyproject.toml`).
+A release of one package is a tag `<package>-v<major>.<minor>.<patch>` on a commit of `main`: `rust-v0.2.0`, `typescript-v0.2.0`, `python-v0.2.1`. The Go package uses the tag form Go requires for a module in a subdirectory (`go/v0.2.0`). The tag's version must equal the package's version in its manifest (`Cargo.toml`, `package.json`, `pyproject.toml`).
 
 ### 2.4 A release workflow verifies, waits for approval, publishes and verifies
 
@@ -56,6 +56,10 @@ The publish jobs authenticate with GitHub's OIDC identity (`id-token: write`): `
 ### 2.6 Recovery
 
 A failed publish job is re-run from the Actions tab. The job first checks whether the version is already on the registry and skips publishing if so, so a re-run completes whatever is missing (the verification and the GitHub release). A published version that turns out defective is yanked (crates.io, PyPI) or deprecated (npm) and fixed in a new patch version; it is never overwritten. If one package's release fails for a cause that needs a code change, the fix is a new patch of that package only (2.1).
+
+### 2.7 Go (added 2026-11-14)
+
+The Go module is `github.com/gram-data/gram-value/go`, in the directory `go/`, released by the tag `go/vX.Y.Z`. A Go module takes its version from the tag, not from a file, so `go/VERSION` records it for `scripts/check-release.py`, which checks it against the tag and the shared `major.minor`. There is no registry account, no token and no trusted-publisher setup. The release workflow verifies the tag, waits for the same approval, asks the Go module proxy (`proxy.golang.org`) for the version, checks that it is served, and creates the GitHub release. A defective version is retracted with a `retract` directive in `go/go.mod` and fixed by a new patch.
 
 ## 3. Alternatives Considered
 

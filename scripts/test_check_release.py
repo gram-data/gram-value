@@ -11,14 +11,15 @@ chk = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(chk)
 
 
-def tree(corpus="0.2", rust="0.2.0", ts="0.2.0", py="0.2.1"):
+def tree(corpus="0.2", rust="0.2.0", ts="0.2.0", py="0.2.1", go="0.2.0"):
     root = Path(tempfile.mkdtemp())
-    for d in ("conformance", "rust", "typescript", "python"):
+    for d in ("conformance", "rust", "typescript", "python", "go"):
         (root / d).mkdir()
     (root / "conformance" / "VERSION").write_text(corpus + "\n")
     (root / "rust" / "Cargo.toml").write_text(f'[package]\nname = "x"\nversion = "{rust}"\n')
     (root / "typescript" / "package.json").write_text(json.dumps({"name": "x", "version": ts}))
     (root / "python" / "pyproject.toml").write_text(f'[project]\nname = "x"\nversion = "{py}"\n')
+    (root / "go" / "VERSION").write_text(go + "\n")
     return root
 
 
@@ -27,6 +28,14 @@ class CheckRelease(unittest.TestCase):
         problems, parsed = chk.check("python-v0.2.1", tree())
         self.assertEqual(problems, [])
         self.assertEqual(parsed, ("python", "0.2.1"))
+
+    def test_go_tags_use_the_subdirectory_form(self):
+        problems, parsed = chk.check("go/v0.2.0", tree())
+        self.assertEqual(problems, [])
+        self.assertEqual(parsed, ("go", "0.2.0"))
+        problems, parsed = chk.check("go-v0.2.0", tree())
+        self.assertIsNone(parsed)
+        self.assertTrue(problems)
 
     def test_a_package_on_another_minor_is_reported(self):
         problems, _ = chk.check(None, tree(ts="0.3.0"))
@@ -38,7 +47,7 @@ class CheckRelease(unittest.TestCase):
         self.assertTrue(any("does not match" in p for p in problems))
 
     def test_a_malformed_tag_is_reported(self):
-        for tag in ("v0.2.0", "go-v0.2.0", "rust-0.2.0", "rust-v0.2"):
+        for tag in ("v0.2.0", "swift-v0.2.0", "rust-0.2.0", "rust-v0.2", "go/0.2.0"):
             problems, parsed = chk.check(tag, tree())
             self.assertIsNone(parsed, tag)
             self.assertTrue(problems, tag)

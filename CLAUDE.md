@@ -36,7 +36,7 @@ on it instead of keeping their own copies. It began as a note in relate-gram
   implementation.
 - **License:** MIT. **Remote:** `git@github.com:gram-data/gram-value.git` (public).
 
-RFC-001 and RFC-002 are decided, ADR-001 to ADR-007 are accepted, `spec/` states the rules, and the Rust (`rust/`), TypeScript (`typescript/`) and Python (`python/`) packages implement them and pass 154 conformance cases. CI generates the parity matrix. Releases are per-package tags with an approval gate (`RELEASING.md`, ADR-007); the registry accounts and trusted publishers are set up by the owner. Next: the next-tier languages.
+RFC-001 and RFC-002 are decided, ADR-001 to ADR-007 are accepted, `spec/` states the rules, and the Rust (`rust/`), TypeScript (`typescript/`), Python (`python/`) and Go (`go/`) packages implement them and pass 154 conformance cases. CI generates the parity matrix. Releases are per-package tags with an approval gate (`RELEASING.md`, ADR-007); the registry accounts and trusted publishers are set up by the owner. Next: Swift and Haskell.
 
 ## Reference repos (local, read-mostly)
 

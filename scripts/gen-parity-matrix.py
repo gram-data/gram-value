@@ -23,6 +23,7 @@ DEFAULT_RESULTS = {
     "rust": ROOT / "rust" / "target" / "conformance-results.gram",
     "typescript": ROOT / "typescript" / "target" / "conformance-results.gram",
     "python": ROOT / "python" / "target" / "conformance-results.gram",
+    "go": ROOT / "go" / "target" / "conformance-results.gram",
 }
 CASE_FILES = ("values.gram", "text.gram", "tags.gram", "mappings.gram")
 STATUSES = ("passed", "failed", "skipped", "not-applicable")

@@ -6,12 +6,12 @@
 (decimal:Kind)
 (big_decimal:Kind)
 (boolean:Kind:TypeScriptNative)
-(string:Kind:TypeScriptNative)
+(string:Kind:TypeScriptNative:GoNative)
 (tagged:Kind)
 (range:Kind)
 (measurement:Kind)
 (array:Kind)
-(map:Kind)
+(map:Kind:GoNative)
 
 // Diagnostic codes (spec/results.md).
 (invalid-form:Diagnostic)
@@ -40,6 +40,7 @@
 (lossy:Class)
 (unsupported:Class:Diagnostic)
 (rust:Language)
+(go:Language)
 (typescript:Language)
 (python:Language)
 
@@ -48,7 +49,7 @@
 (not-finite:Diagnostic)
 
 // Rust native type names. `none` means no native value: the entry is unsupported.
-(none:RustNative:TypeScriptNative:PythonNative)
+(none:RustNative:TypeScriptNative:PythonNative:GoNative)
 (i8:RustNative)
 (i16:RustNative)
 (i32:RustNative)
@@ -62,20 +63,20 @@
 (u128:RustNative)
 (usize:RustNative)
 (f64:RustNative)
-(bool:RustNative:PythonNative)
+(bool:RustNative:PythonNative:GoNative)
 (String:RustNative)
 (Vec:RustNative)
 (BTreeMap:RustNative)
-(Tagged:RustNative:TypeScriptNative:PythonNative)
-(Range:RustNative:TypeScriptNative:PythonNative)
-(Measurement:RustNative:TypeScriptNative:PythonNative)
-(Date:RustNative:TypeScriptNative:PythonNative)
-(Time:RustNative:TypeScriptNative:PythonNative)
-(DateTime:RustNative:TypeScriptNative:PythonNative)
-(Duration:RustNative:TypeScriptNative:PythonNative)
-(Point:RustNative:TypeScriptNative:PythonNative)
+(Tagged:RustNative:TypeScriptNative:PythonNative:GoNative)
+(Range:RustNative:TypeScriptNative:PythonNative:GoNative)
+(Measurement:RustNative:TypeScriptNative:PythonNative:GoNative)
+(Date:RustNative:TypeScriptNative:PythonNative:GoNative)
+(Time:RustNative:TypeScriptNative:PythonNative:GoNative)
+(DateTime:RustNative:TypeScriptNative:PythonNative:GoNative)
+(Duration:RustNative:TypeScriptNative:PythonNative:GoNative)
+(Point:RustNative:TypeScriptNative:PythonNative:GoNative)
 (Uuid:RustNative:TypeScriptNative:PythonNative)
-(Week:RustNative:TypeScriptNative:PythonNative)
+(Week:RustNative:TypeScriptNative:PythonNative:GoNative)
 
 // TypeScript native type names (`none`, `string`, `boolean` and the package types are shared above).
 (number:TypeScriptNative)
@@ -96,3 +97,10 @@
 (failed:Status)
 (skipped:Status)
 (not-applicable:Status)
+
+// Go native type names (`none`, `bool`, `string`, `map` and the package types are shared above).
+(int64:GoNative)
+(BigInt:GoNative)
+(float64:GoNative)
+(slice:GoNative)
+(UUID:GoNative)
