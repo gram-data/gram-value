@@ -119,9 +119,9 @@ tags interpret.
 
 ### 5.4 Loss as data
 
-Candidate direction: the conversion's result would have the shape RFC-001 proposes for interpretation, the value
-together with a list of losses, each saying what was lost and where. The fields of a loss are question 7.2. The
-list is accumulated across independent elements, and each language adds idiomatic helpers for composing results.
+The conversion's result has the shape of ADR-005: the value together with a list of losses, each with a `code` (the loss
+kind), a `message` and a `path`. The list is accumulated across independent elements, and each language adds idiomatic
+helpers for composing results (decided, 7.1 to 7.3).
 
 ### 5.5 A lossless escape hatch
 
@@ -130,16 +130,14 @@ consumer that does not understand a value can still pass it through and write it
 
 ### 5.6 Writing native values as gram
 
-Candidate direction: the reverse table would say which native values can be written (integers within 64 bits,
-finite floats, strings, booleans, arrays, maps with string keys, and the native temporal, point and UUID types
-through known tags) and which fail (`null`, `undefined`, `NaN`, infinities, integers beyond 64 bits, non-string
-map keys, functions). The exact lists are question 7.9.
+The reverse table says which native values can be written (integers of any width, finite floats, strings, booleans,
+arrays, maps with string keys, and the native temporal, point and UUID types through known tags) and which fail
+(`null`, `undefined`, `NaN`, infinities, non-string map keys, functions), as decided in 7.9.
 
 ### 5.7 Loss policy belongs to the consumer
 
-Candidate direction: a consumer could fail on any loss, accept and record it, or ignore it. The policy would decide
-what to do with the losses already recorded in the result, so the same table serves a validator that fails and a
-viewer that tolerates. Where the choice is made is question 7.3.
+A conversion records its losses and never fails because of one. A consumer fails on any loss with a helper, or ignores
+the list, so the same table serves a validator that fails and a viewer that tolerates (decided, 7.3).
 
 ### 5.8 Parity through the conformance corpus
 
@@ -264,8 +262,16 @@ mapping is the only point at which a value changes representation, and a loss re
 
 7.13. Can a consumer override a table entry (for example, mapping decimals to its own type)?
 
+Decided 2026-11-14: no. The tables are fixed and the conversions are plain functions. A consumer that wants a different
+native type converts to the package's own value, which is always exact, and applies its own function. There is one
+behavior per entry, so the corpus covers all of it and parity holds.
+
 7.14. How do the tables evolve when the grammar adds a value form (decimal measurements arrived in
 tree-sitter-gram 0.7.0)?
+
+Answered 2026-11-14 by ADR-002 and RFC-003 5.8: a new value form is a new kind, which is a breaking change (ADR-002 2.4);
+its `MappingCase`s are added to the corpus first, then each package adds its entry, and a grammar release is reviewed
+against the corpus before the pinned version changes.
 
 ## 8. ADRs
 
