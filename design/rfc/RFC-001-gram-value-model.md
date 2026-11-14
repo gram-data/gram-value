@@ -140,7 +140,7 @@ model.
 
 ### 5.6 Parity through a conformance corpus
 
-A language-neutral corpus of cases ties a gram value to its canonical description, its canonical text and, per
+RFC-003 elaborates this section. A language-neutral corpus of cases ties a gram value to its canonical description, its canonical text and, per
 language, its native mapping and loss class. Every package runs all of it in CI. The parity matrix comes from
 the results.
 

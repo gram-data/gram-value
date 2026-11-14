@@ -143,7 +143,7 @@ viewer that tolerates. Where the choice is made is question 7.3.
 
 ### 5.8 Parity through the conformance corpus
 
-The corpus holds, for each case, the expected native value and entry class for every first-tier language. A
+RFC-003 elaborates this section. The corpus holds, for each case, the expected native value and entry class for every first-tier language. A
 package passes when its conversions match every case, and the parity matrix is generated from the results.
 
 ## 6. Alternatives Considered

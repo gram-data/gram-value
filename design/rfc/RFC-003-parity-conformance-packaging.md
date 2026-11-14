@@ -28,24 +28,31 @@ to later decisions.
 
 ## 2. Problem / Motivation
 
-**Parity is currently checked by hand, if at all.** pattern-rs, a Rust library of pattern and graph structures built
-on gram, keeps a parity matrix in `proposals/language-parity-proposal.md`: a table of which operations the Haskell
-reference, Rust, TypeScript and Python each have, written by hand and dated 2026-04-16. It records which
-operations exist, not whether they behave the same, and nothing regenerates it when code changes. SPIKE-001 found
-the behavior differences that such a table cannot show: the same gram text becomes a different value in different
-languages (integers of three different widths, a decimal that turns into an integer, a map misread at the host
-boundary).
+**Parity has been planned and never automated.** pattern-rs, a Rust library of pattern and graph structures built
+on gram, keeps a hand-written parity matrix (`proposals/language-parity-proposal.md`, dated 2026-04-16) that
+records which operations the Haskell reference, Rust, TypeScript and Python each have, not whether they behave the
+same. It also defines a JSON test-case format (`scripts/sync-tests`, `tests/common/test_cases.json`) and a plan to
+extract cases from its Haskell reference, pattern-hs, which has a `gramref` command that can generate JSON test
+suites; the extraction and comparison scripts (`extract.sh` and `compare.sh`) are placeholders. SPIKE-001 found the
+behavior differences such a table cannot show: the same gram text becomes a different value in different languages
+(integers of three different widths, a decimal that turns into an integer, a map misread at the host boundary).
 
-**A shared corpus has worked for the grammar.** tree-sitter-gram keeps its grammar's test corpus (`test/corpus`,
+**A shared corpus has worked for the grammar.** tree-sitter-gram, the grammar that defines what text is gram, keeps its test corpus (`test/corpus`,
 one case per input with its expected syntax tree) in one place, and its bindings for C, Go, Node, Python, Rust
 and Swift live in the same repository. relate-gram, which loads gram into the Relate database, runs every corpus
 case against its own expectations file, which records for each case whether it loads and with which error. When
 the grammar gained empty arrays and decimal measurements (version 0.7.0) the new corpus cases surfaced exactly
 what had to change in relate-gram. A corpus about values would do the same for the value model, one level up.
 
+**Cross-implementation suites exist for other notations.** JSON-Schema-Test-Suite, a language-agnostic set of test
+files, is run by implementations of JSON Schema in many languages, and Bowtie coordinates running those
+implementations and reports their results. `toml-test` does the same for TOML parsers and expresses every value as
+tagged JSON with the value always a string, so no language's number type changes it.
+
 **The behavior to keep in step is more than syntax.** The cases a value library needs span four kinds of
 behavior: what a value is and how two values compare, the canonical text written for a value, the
-interpretation and validation of known tags (SPIKE-001, RFC-001), and each host-language mapping with its loss
+interpretation and validation of known tags (tags such as `date` or `point` whose content `gram-value`
+interprets), and each host-language mapping with its loss
 (RFC-002). A syntax-tree corpus covers none of those.
 
 **Native implementations duplicate logic by design.** SPIKE-002 measured WebAssembly in TypeScript at 11 to 25
@@ -73,8 +80,9 @@ matrix shows it.
 3.4. Put the specification, the corpus and the first-tier packages in one repository, so a change to behavior
 changes the corpus and the packages in one commit.
 
-3.5. Publish the first-tier packages to crates.io, npm and PyPI from one release, in an order that never leaves a
-package depending on an unpublished version.
+3.5. Publish the first-tier packages to crates.io, npm and PyPI from one release, so that no registry offers a
+version the others lack beyond the duration of a release run, with a stated recovery if one registry fails after
+another has succeeded.
 
 3.6. State how a version number relates across the languages, and what a user may rely on before 1.0.
 
@@ -115,15 +123,17 @@ test-only lowering. The trade-offs are question 7.1.
 
 ### 5.3 Every package runs everything, and skips are declared
 
-Each first-tier package runs the whole corpus in CI. A case a package cannot yet pass is listed in that package's
-own skip list with a reason, and a skip is a visible gap in the matrix and not a hidden omission. The matrix is
-generated from the runs and published with the repository.
+Each first-tier package runs the whole corpus in CI. Candidate direction: a case a package does not yet pass is
+listed in that package's own skip list with a reason, so a skip is a visible gap in the matrix and not a hidden
+omission (how a skip is declared is question 7.3). A mapping case whose expected outcome is a recorded loss or an
+unsupported entry passes when the package reports exactly that; a skip means the package does not yet do what the
+case asks. The matrix is generated from the runs and published with the repository.
 
 ### 5.4 Tiers
 
-The first tier (Rust, TypeScript, Python) passes the corpus without skips, or with skips that an ADR has
-accepted. A next-tier language (Go, Swift, Haskell) is welcome to appear in the matrix as soon as it runs the
-corpus, with its gaps visible, and is promoted when it passes.
+Candidate direction: the first tier (Rust, TypeScript, Python) passes the whole corpus. A next-tier language (Go,
+Swift, Haskell) appears in the matrix as soon as it runs the corpus, with its gaps visible, and is promoted when it
+passes.
 
 ### 5.5 One repository
 
@@ -140,9 +150,9 @@ fix confined to one package may ship as a patch of that package only if the poli
 
 ### 5.7 Release from one tag
 
-A release workflow publishes every first-tier package from one tag, builds and verifies each from the published
-artifact, and publishes in dependency order. Registry credentials are held by the workflow and not by a person
-(question 7.8). A release that fails partway leaves a documented recovery.
+Candidate direction: a release workflow publishes every first-tier package from one tag and verifies each from the
+published artifact, in dependency order where one package depends on another. How the workflow authenticates to
+the registries is question 7.8. A release that fails partway has a documented recovery.
 
 ### 5.8 Changes start in the corpus
 
@@ -162,7 +172,8 @@ exists and not how it behaves, and it drifts.
 
 6.2. **Generate the expected outputs from the Rust implementation and compare the other languages with them.** A
 differential approach. Rejected as the contract: it makes Rust's behavior, bugs included, the specification, and
-RFC-001 (6.5) gives every language the same standing. Differential runs remain useful as an additional check.
+RFC-001 (6.5) gives every language the same standing. Differential runs remain useful as an additional check. pattern-rs chose this route for its Haskell reference and
+did not finish the automation (section 2).
 
 6.3. **Property-based cross-language testing only (random values, compare text round trips).** Rejected as the
 contract: it finds disagreements but does not say what is right. It complements the corpus.
@@ -174,15 +185,21 @@ corpus would need its own versioned distribution. It remains available if a pack
 6.5. **Independent version numbers per package.** Rejected as the default: a user combining languages could not
 tell which versions agree. A package-only patch is the exception (5.6).
 
-6.6. **No release automation; publish each package by hand.** Rejected: it invites a package published against an
-unpublished dependency, and it leaves the release knowledge with one person.
+6.6. **No release automation; publish each package by hand.** Rejected: it invites a registry left a version behind the
+others after a partial failure, and it leaves the release knowledge with one person.
+
+6.7. **A central harness that runs each package through a protocol and produces one compatibility report (the
+approach of Bowtie for JSON Schema).** Packages are tested from outside, in isolation. Not rejected: it decouples the
+matrix from each package's CI, at the cost of a protocol every package must implement; question 7.15 asks which
+fits.
 
 ## 7. Open Questions
 
 7.1. How does a corpus case describe a value without a parser: a structured description used only in the corpus
 (readable, no parser needed, but a second notation next to gram text, in tension with RFC-001 4.4), or gram text
 parsed in tests with each language's tree-sitter-gram binding and a test-only lowering (one notation, but a
-dependency and duplicated lowering code in every language)?
+dependency and duplicated lowering code in every language)? `toml-test`, a corpus for another notation, describes
+values as tagged JSON with every value a string.
 
 7.2. How does a case state the expected native value per language: a literal in that language's syntax, evaluated by
 the runner; or a neutral description that each runner builds a native value from and compares?
@@ -199,20 +216,27 @@ in its own repository?
 what may a user rely on before 1.0?
 
 7.7. What are the package names on each registry (crates.io `gram-value`; npm `gram-value` or `@gram-data/value`;
-PyPI `gram-value`; the Go module path; the Swift package; Hackage), and who owns them?
+PyPI `gram-value`; the Go module path; the Swift package; Hackage), and who owns them? (Deferred to an ADR.)
 
 7.8. How do release workflows authenticate to the registries (trusted publishing, tokens held as repository
-secrets), and what is the recovery when one registry fails after another succeeds?
+secrets), and what is the recovery when one registry fails after another succeeds? (Deferred to an ADR.)
 
-7.9. What does CI cost with several toolchains, and which languages run on every change and which on a schedule?
+7.9. What does CI cost with several toolchains, and which languages run on every change and which on a schedule? (Deferred to an ADR.)
 
-7.10. Where and how is the parity matrix published?
+7.10. Where and how is the parity matrix published? (Deferred to an ADR.)
 
 7.11. Do consumers (relate-gram, pattern-rs) run a subset of the corpus against their own use of the library, or
 only their own tests?
 
 7.12. If operations are pushed down into the core (RFC-001 7.16), how does the corpus describe a pipeline so every
 language can run it?
+
+7.13. What is the corpus's coverage target: every grammar value form, every known tag, every mapping entry?
+
+7.14. How does a package obtain the corpus (a path in the repository, a vendored copy, a published artifact), and
+how is a corpus version tied to a package version?
+
+7.15. Does the parity matrix come from each package's own CI or from a central harness (6.7)?
 
 ## 8. ADRs
 
