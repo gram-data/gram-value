@@ -280,6 +280,15 @@ value the grammar cannot express (an array inside an array) is a reported error,
 
 7.15. What are equality, ordering and hashing for values (`1` and `1.0`, `NaN`, `5kg` and `5.0kg`)?
 
+Decided 2026-11-14: two values are equal by default when they have the same kind and the same canonical text, so `1` is
+not equal to `1.0`, `5kg` is not equal to `5.0kg`, `-0.0` is not equal to `0.0`, and maps are equal whatever order their
+entries were written in. The model rejects `NaN` and infinities at construction (gram cannot write them), so equality is
+total and hashing follows from it. Other equivalence functions (numeric equivalence across kinds, for example) may be
+offered later as separate named functions; they do not replace equality or hashing. The model specifies a total order:
+by kind in a fixed order, then within a kind (integers and decimals numerically, strings by UTF-8 bytes, arrays
+lexicographically, maps by their sorted entries, tags by tag then content, ranges and measurements by their parts). The
+order is a convenience and means nothing about the values.
+
 7.16. Should the Rust implementation explore a functional-programming system for values and operations that
 minimizes the data crossing a language boundary while allowing operations to be pushed down into the core? In
 such a system a host language would send a description of a pipeline of operations and receive one result,
