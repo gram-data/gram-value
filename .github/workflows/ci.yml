@@ -30,3 +30,4 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo install gram-data --version 0.7.0 --locked
       - run: gram lint --strict conformance/
+      - run: python3 scripts/gen-mapping-docs.py --check

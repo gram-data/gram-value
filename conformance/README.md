@@ -8,5 +8,6 @@ measured and not asserted.
 The corpus is gram text (ADR-001): `values.gram`, `text.gram` and `tags.gram` hold the cases, `vocabulary.gram` the
 names a case may use, and `GRAMMAR_VERSION` the tree-sitter-gram version the files are read with. Check the files
 with `gram lint --strict conformance/`. Each package parses them with its own tree-sitter-gram binding and a
-lowering function in its tests; the Rust runner is `rust/tests/conformance.rs`. Mapping cases (`MappingCase`)
-arrive with the host-language mappings.
+lowering function in its tests; the Rust runner is `rust/tests/conformance.rs`. Mapping cases (`MappingCase`, in
+`mappings.gram`) state the native type per language, one case per line so that `scripts/gen-mapping-docs.py` can read
+them; it generates `docs/mappings/<language>.md`, and CI fails if those files are stale. Only Rust has entries so far.

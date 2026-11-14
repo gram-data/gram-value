@@ -2,7 +2,7 @@
 //!
 //! `gram-value` models every value gram can write (integers, decimals, booleans, strings, tagged strings,
 //! ranges, measurements, arrays and maps), compares them, writes each as canonical gram text, and interprets
-//! the ten known tags. It does not parse: [tree-sitter-gram](https://github.com/gram-data/tree-sitter-gram)
+//! the ten known tags, and converts to and from Rust's own types with `From` and `TryFrom` (ADR-006). It does not parse: [tree-sitter-gram](https://github.com/gram-data/tree-sitter-gram)
 //! does. The rules are in `spec/` of the repository; the decisions are ADR-002 to ADR-005 under `design/adr/`.
 //!
 //! ```
@@ -16,11 +16,13 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+mod convert;
 mod diagnostic;
 pub mod tags;
 mod text;
 mod value;
 
+pub use convert::{Diagnostics, FromValue};
 pub use diagnostic::{Diagnostic, PathSegment};
 pub use text::{string_text, Context};
 pub use value::{BigDecimal, BigInteger, Decimal, Kind, Map, Measurement, Range, Tagged, Value};

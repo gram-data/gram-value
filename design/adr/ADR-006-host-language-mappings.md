@@ -42,9 +42,9 @@ A conversion to a native value returns the value and a list of losses, using the
 | Kind | Rust | TypeScript | Python |
 |---|---|---|---|
 | `integer` | `i64` (exact) | `number` if within ±(2^53 - 1), else `bigint` (exact) | `int` (exact) |
-| `big_integer` | unsupported: no std type | `bigint` (exact) | `int` (exact) |
+| `big_integer` | any std integer type that holds it (`u64`, `i128`, ...), else `out-of-range` | `bigint` (exact) | `int` (exact) |
 | `decimal` | `f64` (exact) | `number` (`kind` loss when the float is integral) | `float` (exact) |
-| `big_decimal` | unsupported: no std type | `number`, `precision` loss | `decimal.Decimal` (exact) |
+| `big_decimal` | unsupported: no std type (the package's `BigDecimal` remains) | `number`, `precision` loss | `decimal.Decimal` (exact) |
 | `boolean` | `bool` | `boolean` | `bool` |
 | `string` | `String` | `string` | `str` |
 | `tagged` | the package's `Tagged` | the package's `Tagged` | the package's `Tagged` |
@@ -57,7 +57,7 @@ A decimal is always a float, and the table records the one case where a host wit
 
 ### 2.5 Known tags
 
-The native value of a known tag is the package's typed value for it: in Rust `Date`, `Time`, `DateTime`, `Duration`, `Point`, `Uuid` and `Week`, with equivalents in the other packages. Every known tag converts exactly, with no dependency. Conversions to popular library types (Rust's `chrono`, `time` and `uuid`; Python's `datetime` and `uuid.UUID`) are optional extras, separate from the table (in Rust behind cargo features), and report `precision` when a library type cannot hold the value (a nanosecond in a JavaScript `Date`).
+The native value of a known tag is the package's typed value for it: in Rust `Date`, `Time`, `DateTime`, `Duration`, `Point`, `Uuid` and `Week`, with equivalents in the other packages. Every known tag converts with no dependency, and the typed value keeps its meaning. Converting a typed value back writes its normal content string (spec/tags.md section 4), so a non-normal spelling such as ``time`17:35` `` or an upper-case UUID comes back as a different tagged value; a consumer that needs the exact string keeps the tagged value. Conversions to popular library types (Rust's `chrono`, `time` and `uuid`; Python's `datetime` and `uuid.UUID`) are optional extras, separate from the table (in Rust behind cargo features), and report `precision` when a library type cannot hold the value (a nanosecond in a JavaScript `Date`).
 
 ### 2.6 Writing native values as gram
 
@@ -65,7 +65,7 @@ A native value converts to a gram value when it is a boolean, a string, an integ
 
 ### 2.7 Rust conversions use the standard traits
 
-`From<i64>` (and the other integer types, `u64` and `i128` becoming a `big_integer` when needed), `From<f64>` through a checked constructor, `From<bool>`, `From<&str>` and `From<String>`, `From<Vec<T>>` and `From<BTreeMap<String, T>>` for `T` convertible, and `From` for the package types build a `Value`. `TryFrom<&Value>` extracts `i64`, narrower integer types, `f64`, `bool`, `String`, `Vec<T>`, `BTreeMap<String, T>` and the package types. The error is a `Diagnostics` value that holds every problem found, so an array reports all its failing elements with their paths. A value of the wrong kind fails with `type-mismatch`; a number that does not fit the requested integer type fails with `out-of-range`; a `big_integer` or `big_decimal` fails the same way for every std type, since the std library has none. Every Rust entry is exact or unsupported, so Rust never reports a loss. A serde integration may be added as an optional feature; it is not the mapping.
+`From<i64>` (and the other integer types, `u64` and `i128` becoming a `big_integer` when needed), `From<f64>` through a checked constructor, `From<bool>`, `From<&str>` and `From<String>`, `From<Vec<T>>` and `From<BTreeMap<String, T>>` for `T` convertible, and `From` for the package types build a `Value`. `TryFrom<&Value>` extracts `i64`, narrower integer types, `f64`, `bool`, `String`, `Vec<T>`, `BTreeMap<String, T>` and the package types. The error is a `Diagnostics` value that holds every problem found, so an array reports all its failing elements with their paths. A value of the wrong kind fails with `type-mismatch`; a number that does not fit the requested integer type fails with `out-of-range`; a `big_integer` converts to any std integer type that holds it and fails with `out-of-range` otherwise, and a `big_decimal` fails with `out-of-range` for `f64`, since the std library has no exact decimal. Every Rust entry is exact or unsupported, so Rust never reports a loss. A serde integration may be added as an optional feature; it is not the mapping.
 
 ### 2.8 The package's own value is the escape hatch
 
@@ -108,7 +108,8 @@ The mapping adds these codes to the vocabulary: `precision` and `kind` (losses),
 ## 4. Consequences
 
 - A consumer gets one rule for losses in every language (recorded, never fatal) and a helper for strictness. A loader that must report exactly what a file says uses the helper and the unsupported failures.
-- Rust has no `big_integer` or `big_decimal` native value, so a consumer reading very large numbers keeps `Value`. This is stated in the table, not hidden.
+- Rust has no native value for a `big_decimal` or for an integer beyond 128 bits, so a consumer reading very large numbers keeps `Value`. This is stated in the table, not hidden.
+- Converting a typed tag value back normalizes its content, so the round trip of a tagged value is exact only for content already in normal form; the corpus cases use normal forms.
 - TypeScript consumers handle `number` and `bigint`, and a whole decimal like `1.0` reports a `kind` loss that the consumer may ignore.
 - Each language defines `Range`, `Measurement` and `Tagged` types, and a consumer who wants a language range converts it.
 - The mapping needs three `MappingCase` kinds of expectation per entry in the corpus; adding a language adds a property to every case (ADR-001).

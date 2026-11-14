@@ -3,7 +3,7 @@
 //! The corpus is gram text. Each case's `value` is read with tree-sitter-gram and lowered to a
 //! `gram_value::Value` by the functions below, which live in test code and are not shipped (ADR-001 2.3).
 
-use gram_value::{tags, Value};
+use gram_value::{tags, Diagnostics, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -239,15 +239,12 @@ fn vocabulary() -> BTreeMap<String, BTreeSet<String>> {
                 n.child_by_field_name("labels"),
             ) {
                 let mut c = labels.walk();
-                let label = labels
-                    .named_children(&mut c)
-                    .next()
-                    .map(|l| text(&src, l).to_string())
-                    .unwrap();
-                vocab
-                    .entry(label)
-                    .or_default()
-                    .insert(text(&src, id).to_string());
+                for l in labels.named_children(&mut c) {
+                    vocab
+                        .entry(text(&src, l).to_string())
+                        .or_default()
+                        .insert(text(&src, id).to_string());
+                }
             }
         }
         let mut c = n.walk();
@@ -278,7 +275,7 @@ fn corpus() {
     let mut failures = Vec::new();
     let mut counts: BTreeMap<String, usize> = BTreeMap::new();
 
-    for file in ["values.gram", "text.gram", "tags.gram"] {
+    for file in ["values.gram", "text.gram", "tags.gram", "mappings.gram"] {
         for case in load_cases(file) {
             assert!(
                 seen.insert(case.id.clone()),
@@ -370,7 +367,129 @@ fn run_case(case: &Case, vocab: &BTreeMap<String, BTreeSet<String>>) {
                 (o, r) => panic!("expected {o}, got {r:?}"),
             }
         }
+        "MappingCase" => run_mapping(case, vocab),
         other => panic!("unknown case kind {other}"),
+    }
+}
+
+/// The std types a consumer can ask for; a value no entry here accepts is unsupported in Rust.
+const STD_TARGETS: [&str; 18] = [
+    "i8", "i16", "i32", "i64", "i128", "isize", "u8", "u16", "u32", "u64", "u128", "usize", "f64",
+    "bool", "String", "Vec", "BTreeMap", "Tagged",
+];
+
+/// Convert `v` to the native type named `native` and back, returning the canonical text of the result.
+fn roundtrip(native: &str, v: &Value) -> Result<String, Diagnostics> {
+    macro_rules! int {
+        ($t:ty) => {
+            Value::from(<$t>::try_from(v)?)
+        };
+    }
+    let back: Value = match native {
+        "i8" => int!(i8),
+        "i16" => int!(i16),
+        "i32" => int!(i32),
+        "i64" => int!(i64),
+        "i128" => int!(i128),
+        "isize" => int!(isize),
+        "u8" => int!(u8),
+        "u16" => int!(u16),
+        "u32" => int!(u32),
+        "u64" => int!(u64),
+        "u128" => int!(u128),
+        "usize" => int!(usize),
+        "f64" => Value::try_from(f64::try_from(v)?)?,
+        "bool" => Value::from(bool::try_from(v)?),
+        "String" => Value::from(String::try_from(v)?),
+        "Vec" => Value::from(Vec::<Value>::try_from(v)?),
+        "BTreeMap" => Value::from(std::collections::BTreeMap::<String, Value>::try_from(v)?),
+        "Tagged" => Value::from(gram_value::Tagged::try_from(v)?),
+        "Range" => Value::from(gram_value::Range::try_from(v)?),
+        "Measurement" => Value::from(gram_value::Measurement::try_from(v)?),
+        // The typed values of the known tags (ADR-006 2.5).
+        "Date" | "Time" | "DateTime" | "Duration" | "Point" | "Uuid" | "Week" => {
+            let i = tags::interpret(v)?.ok_or_else(|| {
+                Diagnostics::from(gram_value::Diagnostic::new(
+                    "type-mismatch",
+                    "not a known tag",
+                ))
+            })?;
+            let want = match native {
+                "Date" => "date",
+                "Time" => "time",
+                "DateTime" => "datetime",
+                "Duration" => "duration",
+                "Point" => "point",
+                "Uuid" => "uuid",
+                _ => "week",
+            };
+            assert_eq!(i.tag, want, "the typed value is for a different tag");
+            i.to_value()
+        }
+        other => panic!("unknown native type {other}"),
+    };
+    Ok(back
+        .to_text()
+        .unwrap_or_else(|e| panic!("unwritable: {e:?}")))
+}
+
+fn run_mapping(case: &Case, vocab: &BTreeMap<String, BTreeSet<String>>) {
+    for key in case.props.keys() {
+        if !["name", "value"].contains(&key.as_str()) {
+            check_vocab(vocab, "Language", key, &case.id);
+        }
+    }
+    let Some(Value::Map(entry)) = case.props.get("rust") else {
+        return;
+    };
+    let word = |k: &str| match entry.get(k) {
+        Some(Value::String(s)) => Some(s.clone()),
+        _ => None,
+    };
+    let class = word("class").expect("an entry has a class");
+    let native = word("native").expect("an entry has a native type");
+    check_vocab(vocab, "Class", &class, &case.id);
+    check_vocab(vocab, "RustNative", &native, &case.id);
+    if let Some(Value::Array(losses)) = entry.get("loss") {
+        for l in losses {
+            let Value::String(l) = l else {
+                panic!("a loss kind is a symbol")
+            };
+            check_vocab(vocab, "Loss", l, &case.id);
+        }
+        assert_eq!(
+            class == "lossy",
+            !losses.is_empty(),
+            "loss kinds are present exactly when the class is lossy"
+        );
+    }
+    // Rust never reports a loss (ADR-006 2.7).
+    assert_ne!(class, "lossy", "Rust has no lossy entries");
+    match class.as_str() {
+        "exact" => {
+            let want = word("roundtrip").expect("an exact entry has a roundtrip");
+            let got = roundtrip(&native, &case.value)
+                .unwrap_or_else(|e| panic!("conversion failed: {e}"));
+            assert_eq!(got, want, "round trip through {native}");
+            // Exact means converting back gives an equal value.
+            let wrapper = format!("(x {{value: {got}}})");
+            let tree = parse(&wrapper);
+            assert_eq!(
+                load_value(&wrapper, &tree),
+                case.value,
+                "the round trip changed the value"
+            );
+        }
+        "unsupported" => {
+            assert_eq!(native, "none");
+            for target in STD_TARGETS {
+                assert!(
+                    roundtrip(target, &case.value).is_err(),
+                    "{target} unexpectedly accepted the value"
+                );
+            }
+        }
+        other => panic!("unexpected class {other}"),
     }
 }
 

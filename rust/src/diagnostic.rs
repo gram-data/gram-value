@@ -24,7 +24,8 @@ pub struct Diagnostic {
 }
 
 impl Diagnostic {
-    pub(crate) fn new(code: &'static str, message: impl Into<String>) -> Self {
+    /// A diagnostic with an empty path.
+    pub fn new(code: &'static str, message: impl Into<String>) -> Self {
         Diagnostic {
             code,
             message: message.into(),

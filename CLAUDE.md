@@ -36,7 +36,7 @@ on it instead of keeping their own copies. It began as a note in relate-gram
   implementation.
 - **License:** MIT. **Remote:** `git@github.com:gram-data/gram-value.git` (public).
 
-RFC-001's questions are decided, ADR-001 to ADR-005 are accepted, `spec/` states the rules, and the Rust package (`rust/`) passes the first conformance cases. Next: the TypeScript and Python packages, the host-language mappings (RFC-002), and more cases.
+RFC-001 and RFC-002 are decided, ADR-001 to ADR-006 are accepted, `spec/` states the rules, and the Rust package (`rust/`) implements them with the Rust mapping and passes 150 conformance cases. Next: the TypeScript and Python packages (each adds its entries to `mappings.gram`).
 
 ## Reference repos (local, read-mostly)
 
