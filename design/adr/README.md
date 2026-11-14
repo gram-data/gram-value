@@ -59,3 +59,4 @@ Use `/adr-review` before moving a draft to `accepted`.
 
 | ADR | Title | Status | RFCs |
 |---|---|---|---|
+| [ADR-001](ADR-001-conformance-corpus-format.md) | The Conformance Corpus Is Gram Text | proposed | RFC-003, RFC-002 |
