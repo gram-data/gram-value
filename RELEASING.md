@@ -19,9 +19,12 @@ Do these once, before the first release. The workflow cannot do them.
    environment `release`.
 4. **PyPI.** Register a pending trusted publisher for the project name `gram-value`: repository
    `gram-data/gram-value`, workflow `release.yml`, environment `release`. No token is needed.
-5. **First releases of crates.io and npm only.** These two cannot configure trusted publishing before the package
-   exists. Create a temporary API token for each and store it as the repository secret `CARGO_REGISTRY_TOKEN` or
-   `NPM_TOKEN`. After the first publish succeeds, delete the secret and the token.
+5. **A new crate or npm package.** crates.io and npm can only configure trusted publishing for a package that already
+   exists, and the workflow uses no stored token. Publish the very first version of a new package by hand
+   (`cargo publish` from `rust/`, or `npm publish --access public` from `typescript/`) with your own credentials,
+   then configure its trusted publisher. `gram-value` (crates.io) and `@gram-data/value` (npm) are already past this
+   step. The organization has secrets named `CARGO_REGISTRY_TOKEN` and `NPM_TOKEN`; the release workflow does not
+   read them.
 
 ## Releasing a package
 
