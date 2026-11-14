@@ -10,16 +10,17 @@ on it instead of keeping their own copies. It began as a note in relate-gram
 
 ## Scope (decided in the kickoff conversation)
 
-- **All gram values.** Integers (decimal, hexadecimal and octal spellings), decimals, booleans, symbols, strings
-  (four quoting styles), ranges, measurements, arrays, maps and tagged strings. Consumers may support only a
+- **All gram values, as meaning only.** Kinds: integer (64-bit), big integer, decimal (64-bit float), big decimal,
+  boolean, string, tagged string, range, measurement, array and map. Spellings (hex, octal, quoting style, a bare
+  symbol) are not kept; a symbol in a value position is a string. No null. The set of kinds is closed. Consumers may support only a
   subset, without gram-value naming it; subsets and profiles belong to the consumers.
 - **Not a parser, not a graph model.** Parsing belongs to tree-sitter-gram; a property-graph layer, if any, is a
   separate project (`gram-graph` is only an idea).
 - **Authority:** tree-sitter-gram (its grammar and test corpus) is the authoritative specification. This project
   defers to it for syntax and adds the meaning of values, the text-writing rules, and the mappings.
 - **Tagged strings stay `{tag, content}`.** Known tags (`date`, `time`, `localtime`, `datetime`,
-  `localdatetime`, `duration`, `point`, `uuid`, from relate-gram's ADR-011) are an optional interpretation
-  layer. Unknown tags, such as pattern-rs's `ts`, `re`, `zod`, `cypher`, `pydantic` and `gram`, pass through.
+  `localdatetime`, `duration`, `point`, `uuid`, `week`, `weekDate`; forms defined in this project's spec, RFC-001
+  7.17) are an optional interpretation layer, a fixed set of plain functions with no registry. Unknown tags, such as pattern-rs's `ts`, `re`, `zod`, `cypher`, `pydantic` and `gram`, pass through.
 - **Standard host-language mappings, even lossy.** Each language documents how every value maps to a native
   value; where information is lost, the table says what, and a consumer can detect it.
 - **Languages.** First tier: Rust, TypeScript, Python. Next tier: Go, Swift, Haskell.
@@ -28,18 +29,14 @@ on it instead of keeping their own copies. It began as a note in relate-gram
   accumulated across independent values), with idiomatic helpers per language; a small structural traversal is
   offered only if the conformance corpus can test it identically everywhere. A pipeline system that
   pushes operations down across a language boundary is out of scope: every package is native (RFC-001 7.11, 7.16).
-- **Implementation strategy is not decided.** One Rust core with bindings versus native implementations per
-  language is a question for a spike and an ADR. Crossing a language boundary is expensive for users, and
-  WebAssembly in particular is assumed to be a poor experience; Python may be acceptable. The spike measures
-  simple operations in each candidate (create 1,000 values, add them to a list, map the list to new values).
+- **Every language package is native** (RFC-001 7.11, measured in SPIKE-002): no shared core and no
+  WebAssembly or PyO3 bindings. Haskell is a peer, not a reference. The canonical text writer lives in the model's
+  package. Equality is by kind and canonical text, with a total order.
 - **Parity** is defined by a language-neutral conformance corpus that every language runs in CI, not by one
   implementation.
 - **License:** MIT. **Remote:** `git@github.com:gram-data/gram-value.git` (public).
 
-Still open, and the first RFC's job: whether a value records only what it means or also how it was written;
-map ordering and duplicate keys; the value of an octal literal and integer width; decimal and measurement
-representation; how consumers extend the known-tag registry; where the text-writing rules live; how host-language
-mappings are specified, tested and report loss; how the value type evolves with several projects depending on it.
+RFC-001's questions are decided. Still to write: the value-model ADR(s) and the `spec/` documents.
 
 ## Reference repos (local, read-mostly)
 

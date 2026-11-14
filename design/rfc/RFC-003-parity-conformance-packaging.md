@@ -56,9 +56,9 @@ interprets), and each host-language mapping with its loss
 (RFC-002). A syntax-tree corpus covers none of those.
 
 **Native implementations duplicate logic by design.** SPIKE-002 measured WebAssembly in TypeScript at 11 to 25
-times the cost of plain objects and, for Python, a PyO3 core only as fast as native, so RFC-001 leans towards a
-native TypeScript package and leaves Python open. Text writing and the tag validators (about 800 lines in
-relate-gram) would then exist once per native language, and nothing but tests keeps them aligned.
+times the cost of plain objects and, for Python, a PyO3 core only as fast as native, so RFC-001 (7.11) makes every
+language package native. Text writing and the tag validators (about 800 lines in relate-gram) therefore exist once
+per language, and nothing but tests keeps them aligned.
 
 **Several registries each have their own conventions.** The first tier alone publishes to crates.io, npm and
 PyPI; the next tier adds Go modules and Swift packages (both versioned by repository tag) and Hackage. Their
@@ -90,7 +90,8 @@ another has succeeded.
 
 ## 4. Non-Goals
 
-4.1. Choosing whether each language is native or bound to a shared core. That is RFC-001's question 7.11.
+4.1. Choosing whether each language is native or bound to a shared core. RFC-001 7.11 decided: native in every
+language.
 
 4.2. Defining the value model, the text-writing rules or the host mappings. The corpus records them; other
 documents decide them.

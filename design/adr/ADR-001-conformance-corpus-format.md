@@ -49,7 +49,7 @@ A runner runs a `MappingCase` only for a language that has an entry in it. A cas
 
 ### 2.5 A vocabulary file names what a case may say
 
-`conformance/vocabulary.gram` lists the allowed kind names, loss kinds, diagnostic names and, per language, native type names. A corpus lint, run by every package and by the corpus's own check, fails on a name that is not in the vocabulary, so a misspelling is an error, not a case that silently never matches. The lint also requires every distinct value form that appears in any case to appear in a `ValueCase`, which is what pins each language's lowering: a lowering that reads a value differently fails that `ValueCase`.
+`conformance/vocabulary.gram` lists the allowed kind names (the eleven kinds of RFC-001: `integer`, `big_integer`, `decimal`, `big_decimal`, `boolean`, `string`, `tagged`, `range`, `measurement`, `array`, `map`), loss kinds, diagnostic names and, per language, native type names. A corpus lint, run by every package and by the corpus's own check, fails on a name that is not in the vocabulary, so a misspelling is an error, not a case that silently never matches. The lint also requires every distinct value form that appears in any case to appear in a `ValueCase`, which is what pins each language's lowering: a lowering that reads a value differently fails that `ValueCase`.
 
 ### 2.6 Skips live in the package
 
@@ -84,7 +84,7 @@ The case kind for the native-to-gram direction (RFC-002 5.6 and 7.9), cases that
 - Every language needs a tree-sitter-gram binding and a lowering function in its tests. The first-tier languages have bindings. Of the next tier, Go and Swift have them, and Haskell would need one or a binding to the C library; that cost falls on the language when it joins.
 - The lowering functions are duplicated per language, in test code only. The `ValueCase`s pin them (2.5): every value form in any case also appears in a `ValueCase`, so two languages cannot lower the same text to different values without a failure.
 - Adding a language changes every `MappingCase`: the layout keeps each behavior's expectations together at the price of that edit.
-- The corpus cannot be filled in until the value kinds and the canonical text rules are decided (RFC-001 7.1 to 7.5 and 7.7). Until then the `canonical` and `roundtrip` expectations are provisional, and the first cases cover only forms those decisions will not change.
+- The value kinds are decided (RFC-001 7.1 to 7.5) but the canonical text rules are not written yet (RFC-001 7.7, an ADR). Until they are, the `canonical` and `roundtrip` expectations are provisional, and the first cases cover only forms those decisions will not change.
 - The corpus depends on the pinned grammar version. A grammar release can change what a case's text means, so upgrades are reviewed together with the corpus, as RFC-003 5.8 requires.
 - A corpus file is valid gram, but relate-gram would reject much of it (ranges, measurements, maps are outside its Cypher subset). That is expected; the corpus is not for loading into a database.
 - The `roundtrip` text states a loss without saying where it occurred. A loss inside an array or a map is a path question left to RFC-002 7.2.

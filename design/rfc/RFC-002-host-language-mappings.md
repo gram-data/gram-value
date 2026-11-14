@@ -46,11 +46,11 @@ data, with ad-hoc tagged objects (`{type: "symbol", ...}`) for the kinds JSON la
 the string `symbol`, `range`, `tagged` or `measurement` is decoded as that kind instead of as a map (the map
 `{type: "symbol", value: "x"}` is indistinguishable from the symbol `x`).
 
-**Kinds with no native counterpart are modeled in different ways, each unstated.** A measurement, a symbol and a
+**Kinds with no native counterpart are modeled in different ways, each unstated.** A measurement and a
 tagged string have no built-in value in Rust, TypeScript or Python, and a range exists only in forms that differ
 from gram's (Rust's `1..5` excludes its upper bound, Python's `range` is integer-only). pattern-rs holds a range
 as two optional floats and a measurement as a unit and a float, so a range of measurements cannot be represented
-and `5kg` and `5.0kg` are one value. relate-gram, which loads gram into the Relate database, reads a symbol as a
+and `5kg` and `5.0kg` are one value. relate-gram, which loads gram into the Relate database, reads a bare symbol as a
 string, rejects ranges and measurements, and keeps a tagged string as a typed value when it knows the tag and as a
 plain string otherwise.
 
@@ -113,8 +113,8 @@ native language has no counterpart and the entry says whether the conversion fai
 ### 5.3 What the tables are expected to record
 
 Candidate entries, from SPIKE-001, that the first tables must settle: a 64-bit or larger integer in TypeScript; the
-integer-versus-decimal distinction in TypeScript; a range, a measurement, a symbol and a tagged string in each
-language; the order and repeated keys of a map in each language; the temporal, point and UUID types that the known
+integer-versus-decimal distinction in TypeScript; a range, a measurement, a big integer, a big decimal and a tagged string in each
+language; the key order of a map in each language (the model sorts keys and has no repeated keys, RFC-001 7.2); the temporal, point and UUID types that the known
 tags interpret.
 
 ### 5.4 Loss as data
@@ -190,10 +190,11 @@ JavaScript equivalent)? This follows RFC-001 7.4.
 language, or types from a library? Should a range use a language's own range type (Rust's `Range`, Python's
 `range`) where one exists, given that its endpoints and inclusivity differ from gram's?
 
-7.7. Is a symbol a native string with a recorded loss, or a distinct type?
+7.7. Closed: the model has no symbol kind (RFC-001 7.5, decided). A symbol in a value position is a string, so no
+mapping entry and no loss concerns it; only the writer's choice of a bare word or a quoted string differs.
 
-7.8. Which native map type is used in each language (a JavaScript object or `Map`, a Python `dict`, a Rust ordered
-map), and how are key order and repeated keys reported?
+7.8. Which native map type is used in each language (a JavaScript object or `Map`, a Python `dict`, a Rust sorted
+map), and how is key order reported, given that the model's maps are unordered with keys sorted (RFC-001 7.2)?
 
 7.9. Which native values can be written as gram (5.6), and how is an unwritable value reported?
 
