@@ -36,7 +36,7 @@ on it instead of keeping their own copies. It began as a note in relate-gram
   implementation.
 - **License:** MIT. **Remote:** `git@github.com:gram-data/gram-value.git` (public).
 
-RFC-001's questions are decided. Still to write: the value-model ADR(s) and the `spec/` documents.
+RFC-001's questions are decided, ADR-001 to ADR-005 are accepted and `spec/` states the rules. Next: the Rust package and its conformance runner, and the first conformance cases.
 
 ## Reference repos (local, read-mostly)
 
