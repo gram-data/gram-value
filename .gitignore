@@ -18,3 +18,7 @@ pkg/
 *.so
 *.dylib
 *.wasm
+# Swift
+.build/
+.swiftpm/
+Package.resolved

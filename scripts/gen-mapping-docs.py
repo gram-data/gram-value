@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CASE = re.compile(r'^\((?P<id>[\w-]+):MappingCase \{name: (?P<name>"(?:[^"\\]|\\.)*"), value: (?P<rest>.*)\}\)$')
-LANGS = {"rust": "Rust", "typescript": "TypeScript", "python": "Python", "go": "Go"}
+LANGS = {"rust": "Rust", "typescript": "TypeScript", "python": "Python", "go": "Go", "swift": "Swift"}
 
 
 def unquote(s):
@@ -53,11 +53,11 @@ def parse_case(line):
         raise SystemExit(f"cannot read MappingCase line: {line[:80]}")
     rest = m.group("rest")
     # The value is everything up to the first ", <language>: {".
-    lang_at = re.search(r', (rust|typescript|python|go): \{', rest)
+    lang_at = re.search(r', (rust|typescript|python|go|swift): \{', rest)
     value = rest[:lang_at.start()]
     entries, i = {}, lang_at.start()
     while True:
-        lm = re.compile(r',\s*(rust|typescript|python|go): \{').match(rest, i)
+        lm = re.compile(r',\s*(rust|typescript|python|go|swift): \{').match(rest, i)
         if not lm:
             break
         depth, j, in_str = 1, lm.end(), False

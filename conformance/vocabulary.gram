@@ -41,6 +41,7 @@
 (unsupported:Class:Diagnostic)
 (rust:Language)
 (go:Language)
+(swift:Language)
 (typescript:Language)
 (python:Language)
 
@@ -49,7 +50,7 @@
 (not-finite:Diagnostic)
 
 // Rust native type names. `none` means no native value: the entry is unsupported.
-(none:RustNative:TypeScriptNative:PythonNative:GoNative)
+(none:RustNative:TypeScriptNative:PythonNative:GoNative:SwiftNative)
 (i8:RustNative)
 (i16:RustNative)
 (i32:RustNative)
@@ -64,24 +65,24 @@
 (usize:RustNative)
 (f64:RustNative)
 (bool:RustNative:PythonNative:GoNative)
-(String:RustNative)
+(String:RustNative:SwiftNative)
 (Vec:RustNative)
 (BTreeMap:RustNative)
-(Tagged:RustNative:TypeScriptNative:PythonNative:GoNative)
-(Range:RustNative:TypeScriptNative:PythonNative:GoNative)
-(Measurement:RustNative:TypeScriptNative:PythonNative:GoNative)
-(Date:RustNative:TypeScriptNative:PythonNative:GoNative)
-(Time:RustNative:TypeScriptNative:PythonNative:GoNative)
-(DateTime:RustNative:TypeScriptNative:PythonNative:GoNative)
-(Duration:RustNative:TypeScriptNative:PythonNative:GoNative)
-(Point:RustNative:TypeScriptNative:PythonNative:GoNative)
+(Tagged:RustNative:TypeScriptNative:PythonNative:GoNative:SwiftNative)
+(Range:RustNative:TypeScriptNative:PythonNative:GoNative:SwiftNative)
+(Measurement:RustNative:TypeScriptNative:PythonNative:GoNative:SwiftNative)
+(Date:RustNative:TypeScriptNative:PythonNative:GoNative:SwiftNative)
+(Time:RustNative:TypeScriptNative:PythonNative:GoNative:SwiftNative)
+(DateTime:RustNative:TypeScriptNative:PythonNative:GoNative:SwiftNative)
+(Duration:RustNative:TypeScriptNative:PythonNative:GoNative:SwiftNative)
+(Point:RustNative:TypeScriptNative:PythonNative:GoNative:SwiftNative)
 (Uuid:RustNative:TypeScriptNative:PythonNative)
-(Week:RustNative:TypeScriptNative:PythonNative:GoNative)
+(Week:RustNative:TypeScriptNative:PythonNative:GoNative:SwiftNative)
 
 // TypeScript native type names (`none`, `string`, `boolean` and the package types are shared above).
 (number:TypeScriptNative)
 (bigint:TypeScriptNative)
-(Array:TypeScriptNative)
+(Array:TypeScriptNative:SwiftNative)
 (object:TypeScriptNative)
 
 // Python native type names (`none`, `bool` and the package types are shared above).
@@ -103,4 +104,11 @@
 (BigInt:GoNative)
 (float64:GoNative)
 (slice:GoNative)
-(UUID:GoNative)
+(UUID:GoNative:SwiftNative)
+
+// Swift native type names (`none`, `String`, `Array` and the package types are shared above; the package types are
+// GramTagged, GramRange, GramMeasurement, GramDate and so on).
+(Int64:SwiftNative)
+(Double:SwiftNative)
+(Bool:SwiftNative)
+(Dictionary:SwiftNative)

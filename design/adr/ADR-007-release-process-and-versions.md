@@ -28,7 +28,7 @@ The corpus, in the file `conformance/VERSION`, and every package share a `major.
 | npm | `@gram-data/value` | the npm organization `gram-data` |
 | PyPI | `gram-value` | the PyPI organization or maintainers named by the project owner |
 | Go | `github.com/gram-data/gram-value/go` | the repository |
-| Swift (later) | decided when Swift joins (SwiftPM reads `Package.swift` at the repository root) | the repository |
+| Swift | `https://github.com/gram-data/gram-value` (product `GramValue`) | the repository |
 | Hackage (later) | `gram-value` | decided when Haskell joins |
 
 The npm package is scoped, like the organization's grammar package `@gram-data/tree-sitter-gram`, so the name belongs to the organization. crates.io and PyPI have no scopes, and the name `gram-value` is registered once for each.
@@ -61,6 +61,10 @@ A failed publish job is re-run from the Actions tab. The job first checks whethe
 
 The Go module is `github.com/gram-data/gram-value/go`, in the directory `go/`, released by the tag `go/vX.Y.Z`. A Go module takes its version from the tag, not from a file, so `go/VERSION` records it for `scripts/check-release.py`, which checks it against the tag and the shared `major.minor`. There is no registry account, no token and no trusted-publisher setup. The release workflow verifies the tag, waits for the same approval, asks the Go module proxy (`proxy.golang.org`) for the version, checks that it is served, and creates the GitHub release. A defective version is retracted with a `retract` directive in `go/go.mod` and fixed by a new patch.
 
+### 2.8 Swift (added 2026-11-14)
+
+SwiftPM reads the manifest at the root of a repository, as tree-sitter-gram's Swift binding does, so `Package.swift` sits at the root of this repository and points at `swift/Sources/GramValue`. The library has no dependencies. SwiftPM downloads every dependency a manifest declares, even ones only tests use, so the conformance runner and unit tests are a second package, `swift/Tests/Package.swift`, which depends on the root by path and on tree-sitter-gram and SwiftTreeSitter. SwiftPM only recognizes plain semantic-version tags, and a tag always names the whole repository, so the Swift release is the unprefixed tag `vX.Y.Z` (the other packages keep their prefixed tags, so there is no clash). `swift/VERSION` records the version for `scripts/check-release.py`. There is no registry account, token or trusted-publisher setup. The release workflow verifies the tag, waits for the same approval, checks that a scratch package resolves the tagged version as a dependency, and creates the GitHub release. A defective version is not replaced; it is fixed by a new patch.
+
 ## 3. Alternatives Considered
 
 3.1. **One number for every package.** Rejected: a fix to one package would republish identical copies of the others, and Go and Swift need per-package tags anyway.
@@ -84,8 +88,8 @@ The Go module is `github.com/gram-data/gram-value/go`, in the directory `go/`, r
 - crates.io and npm trusted publishing could not be exercised before the first release; the workflow's authentication steps for them are untested until then.
 - The `corpus` job is a dependency of every release, since the verification requires it to have passed.
 - A user can tell whether two packages agree by their `major.minor`; a patch difference says only that one package was fixed.
-- The Swift package will need a `Package.swift` at the repository root (or a separate mirror), which is deferred to when Swift joins.
-- Version bumps for a new minor touch four files (three manifests and `conformance/VERSION`); `check-release.py` catches a missed one.
+- The plain `vX.Y.Z` tag is reserved for the Swift release; a different package must not use it.
+- Version bumps for a new minor touch four files (the manifests, the `go/VERSION` and `swift/VERSION` files and `conformance/VERSION`); `check-release.py` catches a missed one.
 - Follow-up work: `RELEASING.md`; a changelog policy; the Go, Swift and Haskell tag and name decisions; whether to attach the parity matrix to each GitHub release.
 
 ## 5. Related

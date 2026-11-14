@@ -2,7 +2,7 @@
 
 How to publish a package. The decisions behind this are in [ADR-007](design/adr/ADR-007-release-process-and-versions.md).
 
-Each package is released by its own tag: `rust-vX.Y.Z`, `typescript-vX.Y.Z`, `python-vX.Y.Z` or, for Go, `go/vX.Y.Z` (the form Go requires for a module in a subdirectory). The packages and the
+Each package is released by its own tag: `rust-vX.Y.Z`, `typescript-vX.Y.Z`, `python-vX.Y.Z`, for Go `go/vX.Y.Z` (the form Go requires for a module in a subdirectory), and for Swift the plain `vX.Y.Z` (SwiftPM only sees plain semantic-version tags). The packages and the
 corpus (`conformance/VERSION`) share a `major.minor`; a fix to one package is a patch of that package only.
 
 ## One-time setup (the project owner)
@@ -26,7 +26,7 @@ Do these once, before the first release. The workflow cannot do them.
 ## Releasing a package
 
 1. Set the version in the package's manifest (`rust/Cargo.toml`, `typescript/package.json`,
-   `python/pyproject.toml`, and `go/VERSION` for Go, which has no manifest version). For a new minor, set it in all four and in `conformance/VERSION`.
+   `python/pyproject.toml`, and `go/VERSION` and `swift/VERSION` for Go and Swift, which take their version from the tag). For a new minor, set it in all five and in `conformance/VERSION`.
 2. Check: `python3 scripts/check-release.py rust-v0.2.0` (use your tag).
 3. Merge to `main` and wait for CI to pass.
 4. Tag the merge commit and push the tag:
@@ -52,3 +52,11 @@ tag `go/vX.Y.Z`. The release workflow still verifies the tag, waits for approval
 (`proxy.golang.org`) for the version, checks that it is served, and creates the GitHub release. Nothing needs to be
 set up in advance. A published Go version cannot be replaced either (the proxy caches it); retract a defective one
 with a `retract` directive in `go/go.mod` and release a new patch.
+
+## Swift
+
+Swift packages have no registry account either: the package `https://github.com/gram-data/gram-value` is published by
+pushing the plain tag `vX.Y.Z`. The release workflow verifies the tag, waits for approval, checks that a scratch
+package resolves that version as a dependency, and creates the GitHub release. A published tag is never moved or
+reused; fix a defective version with a new patch. The tag `vX.Y.Z` always means the Swift package, so use it for
+nothing else.

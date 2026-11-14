@@ -1,4 +1,5 @@
-# Publishes one package when a package tag is pushed (ADR-007): rust-vX.Y.Z, typescript-vX.Y.Z, python-vX.Y.Z or go/vX.Y.Z.
+# Publishes one package when a package tag is pushed (ADR-007): rust-vX.Y.Z, typescript-vX.Y.Z, python-vX.Y.Z,
+# go/vX.Y.Z, or the plain vX.Y.Z for Swift.
 # The publish jobs wait for an approval in the protected `release` environment. See RELEASING.md.
 name: Release
 
@@ -9,6 +10,7 @@ on:
       - "typescript-v*"
       - "python-v*"
       - "go/v*"
+      - "v[0-9]*"
 
 permissions:
   contents: read
@@ -35,7 +37,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for job in rust typescript python go corpus; do
+          for job in rust typescript python go swift swift-linux corpus; do
             c=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?per_page=100" \
               --jq "[.check_runs[] | select(.name==\"$job\")] | sort_by(.completed_at) | last | .conclusion")
             echo "CI job $job: $c"
@@ -192,6 +194,39 @@ jobs:
             sleep 10
           done
           echo "github.com/gram-data/gram-value/go v$VERSION is not served by proxy.golang.org"; exit 1
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
+
+  publish-swift:
+    needs: verify
+    if: needs.verify.outputs.package == 'swift'
+    runs-on: macos-latest
+    environment: release
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      # SwiftPM has no registry: the tag is the release. Check that a package can resolve the tagged version.
+      - name: Resolve the tagged version as a dependency
+        run: |
+          mkdir consumer && cd consumer
+          mkdir -p Sources/Consumer
+          echo 'public let ok = true' > Sources/Consumer/Consumer.swift
+          cat > Package.swift <<EOF
+          // swift-tools-version:5.9
+          import PackageDescription
+          let package = Package(
+              name: "Consumer",
+              platforms: [.macOS(.v13)],
+              dependencies: [.package(url: "https://github.com/gram-data/gram-value", exact: "$VERSION")],
+              targets: [.target(name: "Consumer", dependencies: [.product(name: "GramValue", package: "gram-value")])]
+          )
+          EOF
+          swift build
       - name: GitHub release
         env:
           GH_TOKEN: ${{ github.token }}

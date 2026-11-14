@@ -98,8 +98,34 @@ jobs:
           path: go/target/conformance-results.gram
           if-no-files-found: error
 
+  swift:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the library (the root package, no dependencies)
+        run: swift build
+      - name: Conformance runner and unit tests
+        working-directory: swift/Tests
+        run: swift test
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: results-swift
+          path: swift/Tests/target/conformance-results.gram
+          if-no-files-found: error
+
+  swift-linux:
+    runs-on: ubuntu-latest
+    container: swift:6.1
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift build
+      - name: Conformance runner and unit tests
+        working-directory: swift/Tests
+        run: swift test
+
   corpus:
-    needs: [rust, typescript, python, go]
+    needs: [rust, typescript, python, go, swift]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
@@ -131,7 +157,8 @@ jobs:
             rust=results/results-rust/conformance-results.gram \
             typescript=results/results-typescript/conformance-results.gram \
             python=results/results-python/conformance-results.gram \
-            go=results/results-go/conformance-results.gram
+            go=results/results-go/conformance-results.gram \
+            swift=results/results-swift/conformance-results.gram
       - name: Publish the matrix to the job summary
         if: ${{ !cancelled() }}
         run: cat parity.md >> "$GITHUB_STEP_SUMMARY"
