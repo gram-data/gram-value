@@ -65,5 +65,7 @@ The same process as relate-gram. Skills live in `.agents/skills/` and are symlin
 
 ## Build and test
 
-Nothing to build yet. Each language package will say how to build and test it, and every package runs the whole
+Validate every `.gram` file in the repository with the `gram` CLI from tree-sitter-gram (`cargo install gram-data`): `gram lint --strict <paths>`. Install its agent skill with `gram skill install`, so an agent editing gram knows the notation and this check (ADR-001).
+
+Nothing else to build yet. Each language package will say how to build and test it, and every package runs the whole
 conformance corpus.

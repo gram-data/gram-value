@@ -22,7 +22,9 @@ Two further constraints come from the behavior the corpus tests. A mapping case 
 
 ### 2.1 Corpus files are gram
 
-The corpus is a set of `.gram` files under `conformance/`, one topic per file (`values.gram`, `text.gram`, `tags.gram`, `mappings.gram`). A case is a node. Its identifier is the case id (lower-case words joined by hyphens, unique across the whole corpus and never reused), its single label is the case kind, and its record holds the case's properties. Comments (`//`) carry notes for readers and are ignored.
+The corpus is a set of `.gram` files under `conformance/`, one topic per file (`values.gram`, `text.gram`, `tags.gram`, `mappings.gram`). A case is a node. Its identifier is the case id (lower-case words joined by hyphens, starting with a letter, unique across the whole corpus and never reused), its single label is the case kind, and its record holds the case's properties. Comments (`//`) carry notes for readers and are ignored.
+
+Every corpus file is syntactically valid gram. A case cannot test a syntax error: tree-sitter-gram owns its own corpus. Files are validated with the `gram` command-line tool from tree-sitter-gram, `gram lint --strict conformance/`, which reports parse and semantic errors and exits non-zero on any diagnostic (`--json` gives the diagnostics as data). The `gram` agent skill, installed with `gram skill install`, teaches an agent the notation and this check, so an agent editing the corpus validates with it. The same check covers each package's `skips.gram` and its result files.
 
 ### 2.2 The value under test is a property value
 
@@ -30,7 +32,7 @@ Every case has a property `value` that holds the value under test, written as a 
 
 ### 2.3 Each language parses the corpus in its tests
 
-A runner parses the corpus files with that language's tree-sitter-gram binding and lowers each case's `value` property to a `gram-value` value with a lowering function that lives in that language's test code and is not shipped in the package. The grammar version is pinned in `conformance/GRAMMAR_VERSION`, runners check it, and a grammar upgrade is a reviewed change to the corpus (RFC-003 5.8).
+A runner parses the corpus files with that language's tree-sitter-gram binding and lowers each case's `value` property to a `gram-value` value with a lowering function (a function that converts the parsed syntax of the value into a `gram-value` value) that lives in that language's test code and is not shipped in the package. A lowering is total: a parsed value it cannot represent fails the run with an error naming the case, and is never dropped or approximated. The grammar version is pinned in `conformance/GRAMMAR_VERSION`, runners check it, and a grammar upgrade is a reviewed change to the corpus (RFC-003 5.8).
 
 ### 2.4 Case kinds
 
@@ -38,14 +40,16 @@ A runner parses the corpus files with that language's tree-sitter-gram binding a
 |---|---|---|
 | `ValueCase` | `kind`: a symbol naming the value's kind | the package classifies `value` as that kind |
 | `TextCase` | `canonical`: a string | writing `value` as gram text gives exactly `canonical` |
-| `TagCase` | `outcome`: `accepted` or `rejected`; `diagnostic`: a symbol, when rejected; `interpreted`: a string, when accepted | interpreting the tag of `value` accepts or rejects it, with that diagnostic, and an accepted value's canonical text is `interpreted` |
+| `TagCase` | `outcome`: `accepted` or `rejected`; `diagnostic`: a symbol, when rejected; `interpreted`: a string, when accepted | interpreting the tag of `value` (a known tag, such as `date` or `point`, is one whose content `gram-value` interprets) accepts or rejects it, with that diagnostic, and an accepted value's canonical text is `interpreted` |
 | `MappingCase` | one property per language, named by the lower-case language (`rust`, `typescript`, `python`, later `go`, `swift`, `haskell`), each a map with `class`, `loss`, `native` and `roundtrip` | converting `value` to that language's native value gives the entry class, loss kinds and native type, and writing the native value back as gram text gives `roundtrip` |
 
 In a mapping entry, `class` is `exact`, `lossy` or `unsupported` (RFC-002 5.2); `loss` is an array of symbols naming loss kinds, present when the class is `lossy`; `native` is the name of the native type in that language's mapping table, or `none` when the conversion fails; `roundtrip` is the gram text that the native value writes back as, so a loss shows as a different text (the TypeScript number from `9007199254740993` writes back as `9007199254740992`), and it is absent when no native value exists.
 
+A runner runs a `MappingCase` only for a language that has an entry in it. A case with no entry for a language is not applicable to that language, and the matrix shows it as not applicable, which is different from a skip.
+
 ### 2.5 A vocabulary file names what a case may say
 
-`conformance/vocabulary.gram` lists the allowed kind names, loss kinds, diagnostic names and, per language, native type names. A corpus lint, run by every package and by the corpus's own check, fails on a name that is not in the vocabulary, so a misspelling is an error, not a case that silently never matches.
+`conformance/vocabulary.gram` lists the allowed kind names, loss kinds, diagnostic names and, per language, native type names. A corpus lint, run by every package and by the corpus's own check, fails on a name that is not in the vocabulary, so a misspelling is an error, not a case that silently never matches. The lint also requires every distinct value form that appears in any case to appear in a `ValueCase`, which is what pins each language's lowering: a lowering that reads a value differently fails that `ValueCase`.
 
 ### 2.6 Skips live in the package
 
@@ -53,7 +57,7 @@ Each package keeps a file `skips.gram` next to its runner, with one node per ski
 
 ### 2.7 Runners report in gram
 
-A runner writes `conformance-results.gram`, one node per case, labelled `Result`, with the case id and a `status` of `passed`, `failed` or `skipped`. The parity matrix is generated from the result files of all packages, so the generator is language-neutral. Where the matrix is published is not decided here (RFC-003 7.10).
+Candidate shape: a runner writes `conformance-results.gram`, one node per case, labelled `Result`, with the case id and a `status` of `passed`, `failed` or `skipped`. The parity matrix is generated from the result files of all packages, so the generator is language-neutral. The file's name and shape may change when the matrix and its generator are designed, and where the matrix is published is not decided here (RFC-003 7.10 and 7.15).
 
 ### 2.8 Not decided here
 
@@ -61,11 +65,11 @@ The case kind for the native-to-gram direction (RFC-002 5.6 and 7.9), cases that
 
 ## 3. Alternatives Considered
 
-3.1. **Tagged JSON, as `toml-test` does.** Values written as `{"type": "integer", "value": "9007199254740993"}`. Rejected: it puts a second notation for values beside gram text, every value becomes a string with the kind named beside it, and a reader sees something that is not what the notation looks like. Its advantage, no parser in any test, remains available for a language that cannot parse gram.
+3.1. **Tagged JSON, as `toml-test` does.** Values written as `{"type": "integer", "value": "9007199254740993"}`. Rejected: it puts a second notation for values beside gram text, every value becomes a string with the kind named beside it, and a value reads as a record of strings instead of as the value itself. Its advantage, no parser in any test, remains available for a language that cannot parse gram.
 
 3.2. **A bespoke corpus text, like tree-sitter's (a name, the input, a separator, the expectation).** Rejected: every language needs its own reader for the format, and the input is still gram text that needs a parser.
 
-3.3. **The value under test as a string of gram text (`input: "5kg"`).** Rejected: the text is quoted and escaped inside another string, tooling and syntax highlighting cannot see it, and the runner would then have to parse it again as a fragment, which tree-sitter-gram does not offer as a document of its own.
+3.3. **The value under test as a string of gram text (`input: "5kg"`).** Rejected: the text is quoted and escaped inside another string, tooling and syntax highlighting cannot see it, and the runner would have to wrap each string in a dummy element to parse it, a second layer of text inside the first.
 
 3.4. **A YAML or TOML file per topic, holding gram text inputs.** Rejected: a third notation, and the same parsing need for the gram inside it.
 
@@ -78,14 +82,18 @@ The case kind for the native-to-gram direction (RFC-002 5.6 and 7.9), cases that
 ## 4. Consequences
 
 - Every language needs a tree-sitter-gram binding and a lowering function in its tests. The first-tier languages have bindings. Of the next tier, Go and Swift have them, and Haskell would need one or a binding to the C library; that cost falls on the language when it joins.
-- The lowering functions are duplicated per language, in test code only, and are exercised by every case, since a wrong lowering fails the cases it touches.
+- The lowering functions are duplicated per language, in test code only. The `ValueCase`s pin them (2.5): every value form in any case also appears in a `ValueCase`, so two languages cannot lower the same text to different values without a failure.
+- Adding a language changes every `MappingCase`: the layout keeps each behavior's expectations together at the price of that edit.
+- The corpus cannot be filled in until the value kinds and the canonical text rules are decided (RFC-001 7.1 to 7.5 and 7.7). Until then the `canonical` and `roundtrip` expectations are provisional, and the first cases cover only forms those decisions will not change.
 - The corpus depends on the pinned grammar version. A grammar release can change what a case's text means, so upgrades are reviewed together with the corpus, as RFC-003 5.8 requires.
 - A corpus file is valid gram, but relate-gram would reject much of it (ranges, measurements, maps are outside its Cypher subset). That is expected; the corpus is not for loading into a database.
 - The `roundtrip` text states a loss without saying where it occurred. A loss inside an array or a map is a path question left to RFC-002 7.2.
 - The vocabulary file and the lint are new things to write and keep current. Native type names are per language and grow with each mapping table.
-- Follow-up work: write the vocabulary and the value-kind names in `spec/`, the corpus lint, the first runner (Rust) and the result file shape, then the TypeScript and Python runners, and then the matrix generator.
+- Follow-up work: write the vocabulary and the value-kind names in `spec/`, the corpus lint (including the `gram lint --strict` check), the first runner (Rust) and the result file shape, then the TypeScript and Python runners, and then the matrix generator.
 
 ## 5. Related
 
 - RFCs: RFC-003 (resolves questions 7.1, 7.2 and 7.3), RFC-002 (the entry classes and loss kinds a mapping case uses), RFC-001 (4.4, no second notation for values; 4.1, no parser in the model).
 - Prior art: JSON-Schema-Test-Suite, Bowtie and `toml-test`, cited in RFC-003.
+- Both parent RFCs are drafts; this ADR is accepted after RFC-003 passes its review.
+- The `gram` command-line tool and its skill: https://github.com/gram-data/tree-sitter-gram (`cargo install gram-data`, then `gram skill install`).
