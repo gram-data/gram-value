@@ -86,16 +86,23 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go/go.mod
-          cache-dependency-path: go/go.sum
+          cache-dependency-path: go/conformance/go.sum
       - name: gofmt
         run: test -z "$(gofmt -l .)"
+      - name: The library module has no dependencies
+        run: test -z "$(go list -m all | tail -n +2)"
       - run: go vet ./...
       - run: go test ./...
+      - name: Conformance runner (a separate module, so the library has no dependencies)
+        working-directory: go/conformance
+        run: |
+          go vet ./...
+          go test ./...
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: results-go
-          path: go/target/conformance-results.gram
+          path: go/conformance/target/conformance-results.gram
           if-no-files-found: error
 
   swift:

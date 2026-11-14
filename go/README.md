@@ -20,12 +20,15 @@ conversion reports a loss; a `big_decimal` has no Go standard library type and f
 ## Development
 
 ```sh
-go test ./...
+go test ./...                       # unit tests of the library
+cd conformance && go test ./...     # the conformance runner (a separate module)
 ```
 
-The conformance runner reads the corpus with tree-sitter-gram's Go binding, which needs a C compiler (cgo). The
+The library module has no dependencies. The conformance runner is a separate module, `go/conformance`, because
+`go mod tidy` in a consumer also looks at the imports of a dependency's tests, and a test-only dependency would
+then break it. The runner reads the corpus with tree-sitter-gram's Go binding, which needs a C compiler (cgo). The
 binding's module declares the path `github.com/tree-sitter/tree-sitter-gram` while the repository is
-`gram-data/tree-sitter-gram`, so `go.mod` has a `replace` line that points the declared path at the real
-repository. It is used only by the tests; the library itself imports nothing outside the standard library.
+`gram-data/tree-sitter-gram`, so the runner's `go.mod` has a `replace` line that points the declared path at the real
+repository.
 
 Go has no package registry: a release is a tag, `go/vX.Y.Z`, which the Go module proxy serves.

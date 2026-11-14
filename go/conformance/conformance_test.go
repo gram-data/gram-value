@@ -1,4 +1,4 @@
-package gramvalue_test
+package conformance_test
 
 // Runs the language-neutral conformance corpus (ADR-001) against this package.
 //
@@ -23,7 +23,7 @@ import (
 
 const grammarVersion = "0.7.0"
 
-func corpus(file string) string { return filepath.Join("..", "conformance", file) }
+func corpus(file string) string { return filepath.Join("..", "..", "conformance", file) }
 
 func parse(src []byte) *tree_sitter.Tree {
 	p := tree_sitter.NewParser()
