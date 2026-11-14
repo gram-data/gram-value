@@ -268,7 +268,15 @@ depend on it (7.2, 7.5), and the conformance corpus's text cases test it in the 
 
 7.8. How are the host-language mappings specified, tested and reported as lossy?
 
+Answered 2026-11-14 by RFC-002 (the tables, entry classes and loss data), ADR-001 (the corpus tests every mapping and
+states the loss as a round-trip text) and RFC-003 (the parity matrix). What remains is RFC-002's own open questions.
+
 7.9. How does the value type evolve when several projects depend on it? (Deferred to an ADR.)
+
+Decided 2026-11-14: the set of kinds is closed, and adding a kind is a breaking change: a major release (a minor
+release before 1.0, under RFC-003's version policy), after which every consumer's exhaustive handling of the kinds fails
+to compile or check until it decides what the new kind means to it. A new kind lands with its corpus cases first
+(RFC-003 5.8).
 
 7.10. Is the Haskell implementation (pattern-hs) a peer of the other languages or their reference?
 
