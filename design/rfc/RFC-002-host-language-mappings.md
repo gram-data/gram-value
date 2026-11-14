@@ -13,9 +13,9 @@ adrs: []
 A gram value is a value in a notation: an integer of any width, a decimal, a measurement such as `5kg`, a range
 such as `1..5`, a symbol, a tagged string, an array or a map. A program wants these as the native values of its
 own language, a JavaScript number or a Python `dict` or a Rust `i64`, and the languages disagree about what they can
-hold. A JavaScript number keeps 53 bits of an integer, no mainstream language has a measurement or a range as a
-built-in value, and an integer-valued decimal such as `1.0` is the same number as `1` in JavaScript. Some
-conversions are exact and some silently change what the file said.
+hold. A JavaScript number keeps 53 bits of an integer, no mainstream language has a measurement as a built-in
+value, the ranges that do exist differ from gram's, and an integer-valued decimal such as `1.0` is the same number
+as `1` in JavaScript. Some conversions are exact and some change what the file said.
 
 The proposal is a mapping for each language: a documented table from every gram value to a native value, in both
 directions, in which every entry is marked exact, lossy (with the loss named) or unsupported, and in which a
@@ -23,7 +23,7 @@ conversion reports the loss it incurred as data the consumer can inspect. A cons
 loss: fail, accept and record, or ignore. The same mapping tables are checked against one language-neutral
 conformance corpus, so that two languages agree about what is lost.
 
-The scope and direction are the proposal; the loss categories, the result shape and each language's table are left
+The scope and direction are the proposal; the loss kinds, the result shape and each language's table are left
 to later decisions.
 
 ## 2. Problem / Motivation
@@ -32,21 +32,27 @@ to later decisions.
 the value types of pattern-rs (a Rust library of pattern and graph structures built on gram), pattern-hs (its
 Haskell reference), and the TypeScript and Python packages of pattern-rs. Integers are unbounded in Haskell and
 Python, 64-bit in Rust, and a JavaScript number in TypeScript, which holds exact integers only up to 2^53. A file
-with `{id: 9007199254740993}` reaches TypeScript as `9007199254740992` with no warning.
+with `{id: 9007199254740993}` cannot be read at all through pattern-rs's TypeScript package: the parse fails with
+"can't be represented as a JavaScript number", so one such integer makes the whole file unreadable and the
+consumer has no loss record to act on. A mapping that returned the value with a recorded loss, or as a `BigInt`,
+would let the consumer decide.
 
-**A kind can change in transit.** The TypeScript package decodes a number from JSON as an integer whenever
+**A kind can change in transit.** The TypeScript package decodes a number as an integer whenever
 `Number.isInteger` is true, so the decimal `1.0` in a gram file arrives as the integer `1`, because JavaScript has
-one number type and the JSON text no longer distinguishes them.
+one number type and nothing in the value distinguishes them.
 
-**The host boundary is ambiguous.** The TypeScript and Python packages receive values from Rust as JSON, with
-ad-hoc tagged objects (`{type: "symbol", ...}`) for the kinds JSON lacks. A gram map that has a key `type` whose
-value is `symbol`, `range`, `tagged` or `measurement` is decoded as that kind instead of as a map.
+**The host boundary is ambiguous.** The TypeScript and Python packages receive values from Rust as JSON-shaped
+data, with ad-hoc tagged objects (`{type: "symbol", ...}`) for the kinds JSON lacks. A gram map whose key `type` holds
+the string `symbol`, `range`, `tagged` or `measurement` is decoded as that kind instead of as a map (the map
+`{type: "symbol", value: "x"}` is indistinguishable from the symbol `x`).
 
-**Kinds with no native counterpart are modeled in different ways, each unstated.** A range, a measurement, a
-symbol and a tagged string have no built-in value in Rust, TypeScript or Python. pattern-rs holds a range as two
-optional floats and a measurement as a unit and a float, so a range of measurements cannot be represented and
-`5kg` and `5.0kg` are one value. relate-gram, which loads gram into the Relate database, reads a symbol as a
-string and rejects the other three.
+**Kinds with no native counterpart are modeled in different ways, each unstated.** A measurement, a symbol and a
+tagged string have no built-in value in Rust, TypeScript or Python, and a range exists only in forms that differ
+from gram's (Rust's `1..5` excludes its upper bound, Python's `range` is integer-only). pattern-rs holds a range
+as two optional floats and a measurement as a unit and a float, so a range of measurements cannot be represented
+and `5kg` and `5.0kg` are one value. relate-gram, which loads gram into the Relate database, reads a symbol as a
+string, rejects ranges and measurements, and keeps a tagged string as a typed value when it knows the tag and as a
+plain string otherwise.
 
 **Containers differ too.** A JavaScript object reorders keys that look like integers (`{b: 1, "2": 1}` iterates
 `"2"` first), a Python `dict` keeps insertion order, and a Rust `HashMap` keeps none.
@@ -58,7 +64,8 @@ cannot use the mapping to decide whether to proceed.
 ## 3. Goals
 
 3.1. For each first-tier language (Rust, TypeScript, Python), document the native value that each gram value kind
-maps to, and that each known tag (RFC-001's interpretation layer) maps to, in both directions.
+maps to, and that each known tag maps to, in both directions. A known tag, such as `date` or `point`, is a tag
+whose content `gram-value` interprets (RFC-001's interpretation layer).
 
 3.2. Mark every entry of every table exact (converting back gives the same gram value), lossy (stating what
 information is lost) or unsupported (no native counterpart, stating what happens).
@@ -73,8 +80,8 @@ changing the table.
 3.5. Specify what happens when a native value with no gram counterpart is written as gram (`null`, `NaN`, an
 integer beyond 64 bits, a map with a non-string key).
 
-3.6. Test every mapping against the conformance corpus, which holds the expected native value and loss class per
-language.
+3.6. Test every mapping against the conformance corpus, a set of language-neutral cases that every language
+package runs, holding the expected native value and entry class per language.
 
 ## 4. Non-Goals
 
@@ -95,12 +102,12 @@ consumer's work.
 
 For each language, one conversion takes a gram value to a native value and one takes a native value to a gram
 value. Each reports what it lost. A table lists every value kind (and every known tag) and, per entry, the native
-representation, the loss class, and the named loss if there is one.
+representation, the entry class, and the named loss if there is one.
 
-### 5.2 Three loss classes
+### 5.2 Three entry classes
 
-Exact: the round trip returns the same gram value. Lossy: information is lost and the entry names it (precision of
-an integer, the integer-versus-decimal distinction, key order, the spelling of a measurement). Unsupported: the
+Exact: the round trip returns the same gram value. Lossy: information is lost and the entry names the loss kind
+(precision of an integer, the integer-versus-decimal distinction, key order, the spelling of a measurement). Unsupported: the
 native language has no counterpart and the entry says whether the conversion fails or produces a wrapper (5.5).
 
 ### 5.3 What the tables are expected to record
@@ -112,9 +119,9 @@ tags interpret.
 
 ### 5.4 Loss as data
 
-The conversion's result has the shape RFC-001 proposes for interpretation: the value together with a list of
-losses, each a record of the kind of loss, the path to the part of the value, and a short description. The list is
-accumulated across independent elements. Each language adds idiomatic helpers for composing results.
+Candidate direction: the conversion's result would have the shape RFC-001 proposes for interpretation, the value
+together with a list of losses, each saying what was lost and where. The fields of a loss are question 7.2. The
+list is accumulated across independent elements, and each language adds idiomatic helpers for composing results.
 
 ### 5.5 A lossless escape hatch
 
@@ -123,19 +130,20 @@ consumer that does not understand a value can still pass it through and write it
 
 ### 5.6 Writing native values as gram
 
-The reverse table says which native values can be written (integers within 64 bits, finite floats, strings,
-booleans, arrays, maps with string keys, and the native temporal, point and UUID types through known tags), and
-which fail (`null`, `undefined`, `NaN`, infinities, integers beyond 64 bits, non-string map keys, functions).
+Candidate direction: the reverse table would say which native values can be written (integers within 64 bits,
+finite floats, strings, booleans, arrays, maps with string keys, and the native temporal, point and UUID types
+through known tags) and which fail (`null`, `undefined`, `NaN`, infinities, integers beyond 64 bits, non-string
+map keys, functions). The exact lists are question 7.9.
 
 ### 5.7 Loss policy belongs to the consumer
 
-A consumer can fail on any loss, accept and record it, or ignore it, per conversion or per consumer. The policy
-decides what to do with the losses already recorded in the result, so the same table serves a validator that fails
-and a viewer that tolerates.
+Candidate direction: a consumer could fail on any loss, accept and record it, or ignore it. The policy would decide
+what to do with the losses already recorded in the result, so the same table serves a validator that fails and a
+viewer that tolerates. Where the choice is made is question 7.3.
 
 ### 5.8 Parity through the conformance corpus
 
-The corpus holds, for each case, the expected native value and loss class for every first-tier language. A
+The corpus holds, for each case, the expected native value and entry class for every first-tier language. A
 package passes when its conversions match every case, and the parity matrix is generated from the results.
 
 ## 6. Alternatives Considered
@@ -158,9 +166,14 @@ what changed, and a validator wants the full list of losses, not the first.
 mapping.** Rejected as the standard: the frameworks differ, so parity could not be tested. A consumer can build on
 the tables with whichever framework it prefers.
 
+6.6. **Always map to the most faithful native type (a `BigInt` for every integer, an exact decimal for every
+decimal).** Lossless by construction. Rejected as the only rule: it makes every consumer work with unfamiliar
+types for common cases, and not every language has such a type. It remains the choice of a consumer that asks for
+it.
+
 ## 7. Open Questions
 
-7.1. What are the loss categories (precision, kind, order, spelling, and others), and is the set closed?
+7.1. What are the loss kinds (precision, kind, order, spelling, and others), and is the set closed?
 
 7.2. What are the fields of a loss record, and how is the path to a part of a value written the same way in every
 language?
@@ -174,7 +187,8 @@ a number when the value is safe and a `BigInt` otherwise?
 JavaScript equivalent)? This follows RFC-001 7.4.
 
 7.6. Which native types hold a range and a measurement: small record types defined by the package in each
-language, or types from a library?
+language, or types from a library? Should a range use a language's own range type (Rust's `Range`, Python's
+`range`) where one exists, given that its endpoints and inclusivity differ from gram's?
 
 7.7. Is a symbol a native string with a recorded loss, or a distinct type?
 
@@ -191,6 +205,11 @@ one source (RFC-001 6.7)?
 
 7.12. If operations are pushed down into the core (RFC-001 7.16), is mapping the only point at which values cross
 the boundary, and does the loss record then describe the whole pipeline?
+
+7.13. Can a consumer override a table entry (for example, mapping decimals to its own type)?
+
+7.14. How do the tables evolve when the grammar adds a value form (decimal measurements arrived in
+tree-sitter-gram 0.7.0)?
 
 ## 8. ADRs
 

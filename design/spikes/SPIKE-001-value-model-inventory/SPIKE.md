@@ -35,6 +35,7 @@ One day.
 2026-11-14
 - pattern-rs's tree-sitter path pins the grammar submodule at v0.6.1, so its behavior is that of 0.6.1, not 0.7.0 (empty arrays and decimal measurements arrived in 0.7.0). Results below say "the pinned grammar" where that matters.
 - pattern-rs's `gram_codec` exports a type called `Value` (7 variants) and parses into `pattern_core` subjects whose properties use a different `Value` (10 variants). Only the second is used for parsed values.
+- Added during the review of RFC-002: the TypeScript package of pattern-rs was run (its built `typescript/packages/gram/wasm-node`, `Gram.parse`). `(n {id: 9007199254740993})` fails the whole parse with "9007199254740993 can't be represented as a JavaScript number", so finding 2's 53-bit TypeScript integer is an error on this path, not a silent rounding (the wasm adapter builds JSON-compatible JavaScript objects with `serde_wasm_bindgen`, not JSON text). `(n {r: 1.0})` arrives as the number `1`, which the TypeScript decoder turns into an integer. The map `{type: "symbol", value: "x"}` arrives as `{"type":"symbol","value":"x"}`, identical to the encoding of the symbol `x`. Finding 11 therefore concerns JSON-shaped data and not JSON text.
 - Run with: `cd scripts/rs-probe && cargo run --release > ../../rs-probe-output.txt`, and `scripts/relate-gram-probe.sh <relate-gram binary> > relate-gram-output.txt`.
 
 ## 5. Findings

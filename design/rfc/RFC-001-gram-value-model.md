@@ -47,7 +47,7 @@ measurements cannot be represented and an open-ended range cannot be written bac
 path drops a property it cannot lower (an integer past 64 bits, a decimal range) and still reports success; a
 map's key order and repeated keys are lost (a `HashMap` in pattern-core); and an octal literal (`010`) is read
 as ten by one implementation and refused by another although the grammar names it an octal. The TypeScript and
-Python values reach Rust through JSON with ad-hoc tags, so a map with a key `type` whose value is `symbol` is
+Python values reach Rust through JSON-shaped data with ad-hoc tags, so a map with a key `type` whose value is `symbol` is
 misread as a symbol. A tool that must report exactly what a file says cannot be built on these models.
 
 **Value interpretation is work every tool repeats.** relate-gram wrote validators for eight tags (`date`,
@@ -134,7 +134,7 @@ exports are byte-stable. Whether the writing rules belong in the model's package
 
 ### 5.5 Host-language mappings
 
-Each language documents a table from every value kind to a native value, with the loss class of each entry. A
+RFC-002 elaborates this section. Each language documents a table from every value kind to a native value, with the loss class of each entry. A
 consumer can ask whether a conversion lost information. Mappings are tested against the same corpus as the
 model.
 
