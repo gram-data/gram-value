@@ -107,21 +107,21 @@ representation, the entry class, and the named loss if there is one.
 ### 5.2 Three entry classes
 
 Exact: the round trip returns the same gram value. Lossy: information is lost and the entry names the loss kind
-(precision of an integer, the integer-versus-decimal distinction, key order, the kind of a measurement's magnitude). Unsupported: the
+(`precision` of a decimal, or the `kind` of a number, as in the integer-versus-decimal distinction). Unsupported: the
 native language has no counterpart and the entry says whether the conversion fails or produces a wrapper (5.5).
 
 ### 5.3 What the tables are expected to record
 
 Candidate entries, from SPIKE-001, that the first tables must settle: a 64-bit or larger integer in TypeScript; the
 integer-versus-decimal distinction in TypeScript; a range, a measurement, a big integer, a big decimal and a tagged string in each
-language; the key order of a map in each language (the model sorts keys and has no repeated keys, RFC-001 7.2); the temporal, point and UUID types that the known
+language; the native map type in each language (the model's maps are unordered with unique keys, RFC-001 7.2); the temporal, point and UUID types that the known
 tags interpret.
 
 ### 5.4 Loss as data
 
-Candidate direction: the conversion's result would have the shape RFC-001 proposes for interpretation, the value
-together with a list of losses, each saying what was lost and where. The fields of a loss are question 7.2. The
-list is accumulated across independent elements, and each language adds idiomatic helpers for composing results.
+The conversion's result has the shape of ADR-005: the value together with a list of losses, each with a `code` (the loss
+kind), a `message` and a `path`. The list is accumulated across independent elements, and each language adds idiomatic
+helpers for composing results (decided, 7.1 to 7.3).
 
 ### 5.5 A lossless escape hatch
 
@@ -130,16 +130,14 @@ consumer that does not understand a value can still pass it through and write it
 
 ### 5.6 Writing native values as gram
 
-Candidate direction: the reverse table would say which native values can be written (integers within 64 bits,
-finite floats, strings, booleans, arrays, maps with string keys, and the native temporal, point and UUID types
-through known tags) and which fail (`null`, `undefined`, `NaN`, infinities, integers beyond 64 bits, non-string
-map keys, functions). The exact lists are question 7.9.
+The reverse table says which native values can be written (integers of any width, finite floats, strings, booleans,
+arrays, maps with string keys, and the native temporal, point and UUID types through known tags) and which fail
+(`null`, `undefined`, `NaN`, infinities, non-string map keys, functions), as decided in 7.9.
 
 ### 5.7 Loss policy belongs to the consumer
 
-Candidate direction: a consumer could fail on any loss, accept and record it, or ignore it. The policy would decide
-what to do with the losses already recorded in the result, so the same table serves a validator that fails and a
-viewer that tolerates. Where the choice is made is question 7.3.
+A conversion records its losses and never fails because of one. A consumer fails on any loss with a helper, or ignores
+the list, so the same table serves a validator that fails and a viewer that tolerates (decided, 7.3).
 
 ### 5.8 Parity through the conformance corpus
 
@@ -175,20 +173,53 @@ it.
 
 7.1. What are the loss kinds (precision, kind, order, spelling, and others), and is the set closed?
 
+Decided 2026-11-14: the loss kinds are `precision` (digits are lost, as when a `big_decimal` becomes a 64-bit float) and
+`kind` (the value's kind changes, as when `1.0` arrives as the integer `1`). A third, `order`, was dropped the same day
+(see 7.8): a map is unordered, so a host that reorders keys loses nothing. The set is closed: a further loss kind
+needs an ADR, so a consumer can match every kind. A value that a host cannot hold at all is not a loss; its entry is
+unsupported and the conversion fails with a diagnostic. Spelling is not a loss kind, because the model keeps none
+(RFC-001 7.1). The kind `structure` is added only if a decision on 7.6 maps ranges or measurements to generic forms.
+
 7.2. What are the fields of a loss record, and how is the path to a part of a value written the same way in every
 language?
 
+Decided 2026-11-14: a loss is a diagnostic with the three fields of ADR-005, `code` (the loss kind of 7.1), `message`
+and `path`. The path is a list of map keys and array indexes, and its text form is a JSON Pointer (RFC 6901): `/items/0/name`,
+with `~0` for `~` and `~1` for `/` inside a key, and the empty string for the whole value. The list is the contract; the
+text form is what messages and the conformance corpus use.
+
 7.3. Where is the loss policy chosen (per call, per consumer, per language), and what is the default?
+
+Decided 2026-11-14: a conversion to a host value never fails because of a loss. It returns the native value together
+with its list of losses (accept and record). Each package offers a helper that turns any loss into a failure, for a
+consumer that wants strictness, and ignoring losses is not reading the list. There is no policy argument on the
+conversion, so one behavior is tested by the corpus.
 
 7.4. In TypeScript, how is an integer beyond 2^53 (an `integer` or a `big_integer`) represented: a number with a recorded loss, a `BigInt` always, or
 a number when the value is safe and a `BigInt` otherwise?
 
+Decided 2026-11-14: an integer within plus or minus 2^53 - 1 becomes a `number` and any other integer, whether `integer` or
+`big_integer`, becomes a `bigint`. Nothing is rounded, so the entry has no loss, and a consumer handles both types. This
+applies to the TypeScript package, which follows the Rust package.
+
 7.5. In each language, is a gram decimal a float or an exact decimal type where one exists (Python `Decimal`, no
 JavaScript equivalent)? This follows RFC-001 7.4.
+
+Decided 2026-11-14: a `decimal` becomes the language's 64-bit float (`f64`, `float`, `number`). A `big_decimal` becomes
+`decimal.Decimal` in Python, exactly. Rust and TypeScript have no standard exact decimal, so in Rust the `big_decimal` entry
+is unsupported as a native value and the package's own `BigDecimal` stays the value (the wrapper of 5.5), and in
+TypeScript it becomes a `number` with a `precision` loss. In TypeScript a whole decimal such as `1.0` also arrives as an
+integer-valued number, reported as a `kind` loss.
 
 7.6. Which native types hold a range and a measurement: small record types defined by the package in each
 language, or types from a library? Should a range use a language's own range type (Rust's `Range`, Python's
 `range`) where one exists, given that its endpoints and inclusivity differ from gram's?
+
+Decided 2026-11-14: each package defines its own small types: a `Range` (optional lower end, optional upper end,
+inclusive) and a `Measurement` (magnitude and unit), whose ends and magnitude are that language's native numbers (a
+range end may also be a measurement). They hold the value exactly, so the entries are exact and need no loss kind.
+A language's own range type (Rust's `RangeInclusive`, Python's `range`) is never used, since its ends and inclusivity
+differ from gram's; a consumer who wants one converts it. In Rust these types are the model's own.
 
 7.7. Closed: the model has no symbol kind (RFC-001 7.5, decided). A symbol in a value position is a string, so no
 mapping entry and no loss concerns it; only the writer's choice of a bare word or a quoted string differs.
@@ -196,21 +227,51 @@ mapping entry and no loss concerns it; only the writer's choice of a bare word o
 7.8. Which native map type is used in each language (a JavaScript object or `Map`, a Python `dict`, a Rust sorted
 map), and how is key order reported, given that the model's maps are unordered with keys sorted (RFC-001 7.2)?
 
+Decided 2026-11-14: Rust uses `BTreeMap<String, T>`, Python a `dict` filled in key order, and TypeScript a plain object with
+a null prototype (so `__proto__` and `constructor` are ordinary keys). Key order is never reported, because a map is
+unordered (RFC-001 7.2) and a host that reorders keys, such as a JavaScript object moving `"2"` first, changes nothing
+the model means. That removed the `order` loss kind of 7.1.
+
 7.9. Which native values can be written as gram (5.6), and how is an unwritable value reported?
+
+Decided 2026-11-14: writable are booleans, strings, integers of any width (an unsigned integer past 64-bit signed
+becomes a `big_integer`), finite floats, arrays and string-keyed maps of writable values, and the date, point and UUID
+types through known tags (7.10). Anything else (`None`, `null`, `undefined`, `NaN`, an infinity, a non-string map key,
+a function) makes the conversion fail: it returns no value and one diagnostic per offending part, each with its
+JSON Pointer path, code `unsupported` (or `not-finite` for `NaN` and the infinities). Nothing is skipped, coerced or
+defaulted; a consumer that wants null entries dropped filters them before converting.
 
 7.10. How do the known tags map to native temporal, point and UUID types, and how is lost precision (a nanosecond
 in a JavaScript `Date`) reported?
 
+Decided 2026-11-14: each package defines the typed values (in Rust `Date`, `Time`, `DateTime`, `Duration`, `Point`, `Uuid` and
+`Week`) and these are the mapping, so every known tag converts with no loss and no dependency. Conversions to popular
+library types are optional extras and separate from the table: in Rust behind cargo features (`chrono`, `time`, `uuid`),
+in Python to `datetime` and `uuid.UUID` where exact, in TypeScript none at first. Any precision a library type cannot
+hold (a nanosecond in a JavaScript `Date`) is reported as a `precision` loss.
+
 7.11. How are the mapping tables written down so the documentation and the conformance corpus are generated from
 one source (RFC-001 6.7)?
+
+Decided 2026-11-14: the corpus is the source. `conformance/mappings.gram` holds the `MappingCase`s of ADR-001 and is the only
+place the tables are written. A small script generates each language's documentation table (`docs/mappings/<language>.md`)
+from it, and CI fails when the generated files are stale.
 
 7.12. Closed: operations are not pushed down into a core (RFC-001 7.16, decided: every package is native), so
 mapping is the only point at which a value changes representation, and a loss record describes one conversion.
 
 7.13. Can a consumer override a table entry (for example, mapping decimals to its own type)?
 
+Decided 2026-11-14: no. The tables are fixed and the conversions are plain functions. A consumer that wants a different
+native type converts to the package's own value, which is always exact, and applies its own function. There is one
+behavior per entry, so the corpus covers all of it and parity holds.
+
 7.14. How do the tables evolve when the grammar adds a value form (decimal measurements arrived in
 tree-sitter-gram 0.7.0)?
+
+Answered 2026-11-14 by ADR-002 and RFC-003 5.8: a new value form is a new kind, which is a breaking change (ADR-002 2.4);
+its `MappingCase`s are added to the corpus first, then each package adds its entry, and a grammar release is reviewed
+against the corpus before the pinned version changes.
 
 ## 8. ADRs
 
