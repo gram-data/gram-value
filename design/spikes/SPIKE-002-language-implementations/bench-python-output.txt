@@ -1,0 +1,8 @@
+py-native n=1000: create 0.0967 ms, collect 0.0001 ms, map 0.2097 ms, read 0.1695 ms, text 0.2088 ms, pipeline(create+collect+map+read) 0.4759 ms [0.476 us/value] (sink 78596525)
+py-pyo3-handles (callback map) n=1000: create 0.1102 ms, collect 0.0225 ms, map 0.1765 ms, read 0.1141 ms, text 0.0520 ms, pipeline(create+collect+map+read) 0.4233 ms [0.423 us/value] (sink 78596525)
+py-pyo3-handles (builtin map) n=1000: create 0.1088 ms, collect 0.0225 ms, map 0.0087 ms, read 0.1144 ms, text 0.0521 ms, pipeline(create+collect+map+read) 0.2544 ms [0.254 us/value] (sink 78596525)
+py-pyo3-json n=1000: create 0.0948 ms, collect 0.3746 ms, map 0.1568 ms, read 0.4706 ms, text 0.2045 ms, pipeline(create+collect+map+read) 1.0969 ms [1.097 us/value] (sink 78596525)
+py-native n=100000: create 11.7709 ms, collect 0.0002 ms, map 21.6669 ms, read 16.6434 ms, text 20.6947 ms, pipeline(create+collect+map+read) 50.0813 ms [0.501 us/value] (sink 48769391827)
+py-pyo3-handles (callback map) n=100000: create 13.2142 ms, collect 2.4359 ms, map 17.6096 ms, read 11.3995 ms, text 5.4860 ms, pipeline(create+collect+map+read) 44.6591 ms [0.447 us/value] (sink 48769391827)
+py-pyo3-handles (builtin map) n=100000: create 13.1776 ms, collect 2.3728 ms, map 0.8239 ms, read 11.3430 ms, text 5.4745 ms, pipeline(create+collect+map+read) 27.7172 ms [0.277 us/value] (sink 48769391827)
+py-pyo3-json n=100000: create 12.4506 ms, collect 41.4971 ms, map 15.9477 ms, read 53.0072 ms, text 20.7896 ms, pipeline(create+collect+map+read) 122.9026 ms [1.229 us/value] (sink 48769391827)

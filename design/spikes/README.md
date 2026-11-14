@@ -55,3 +55,4 @@ into the RFC rather than copied verbatim.
 | Spike | Title | Status | RFCs |
 |---|---|---|---|
 | [SPIKE-001](SPIKE-001-value-model-inventory/SPIKE.md) | Inventory of Existing Gram Value Models | done | RFC-001 |
+| [SPIKE-002](SPIKE-002-language-implementations/SPIKE.md) | Native Implementations Versus a Shared Core, per Language | done | RFC-001 |

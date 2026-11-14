@@ -1,0 +1,8 @@
+load + instantiate the wasm package: 0.81 ms
+native property read (obj.value): 0.4 ns per call
+wasm handle read: v.number(): 2.5 ns per call
+wasm handle read: v.kind(): 2.2 ns per call
+wasm handle read of a string: v.text(): 68.5 ns per call
+native create an integer object: 0.5 ns per call
+wasm create an integer handle and free it: 120.3 ns per call
+wasm create a decimal handle and free it: 109.2 ns per call
