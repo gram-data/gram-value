@@ -250,11 +250,15 @@ back gives the same string.
 Decided 2026-11-14: `gram-value` ships a fixed standard set of known tags (the eight of relate-gram's ADR-011, extended
 by later decisions), each with its own interpretation function, and one convenience function that dispatches over the
 set. There is no registry object. A consumer extends by writing its own function over a plain `{tag, content}` value,
-and supports fewer tags by calling only the ones it wants. The generic layer checks each tag's form and ranges as
-ADR-011 states them (calendar days and clock ranges; an offset required for `time` and `datetime` and none for the
-local forms; durations; UUID groups; a point as extended well-known text with any integer SRID and two or three
-finite coordinates). Rules that depend on a consumer (relate-gram's four SRIDs, a latitude limit for geographic SRIDs,
-whether a zone name is known) belong to the consumer and are applied to the interpreted result.
+and supports fewer tags by calling only the ones it wants. The forms the generic
+layer accepts are the ones tree-sitter-gram documents as its well-known tags (`date`, `datetime` and `time` as ISO 8601,
+with the offset and seconds optional as ISO allows), to be extended in that document with the other tags (`localtime`,
+`localdatetime`, `duration`, `point`, `uuid`) so that the authority and `gram-value` agree. The grammar's own corpus
+writes ``time`17:35` `` and ``point`30 10` ``, and those forms must be accepted. Stricter rules that depend on a
+consumer (relate-gram's required offset, its points with an SRID and its four SRIDs, a latitude limit, whether a zone
+name is known) belong to the consumer's profile and are applied to the interpreted result. relate-gram's ADR-011,
+which defined its forms before the authority's table was read, is to be amended so that it narrows the generic forms
+instead of defining them. The exact forms are question 7.17.
 
 7.7. Do the text-writing rules live in the model's package or a sibling? (Deferred to an ADR.)
 
@@ -270,6 +274,11 @@ native model and a PyO3 core, to be decided on the cost of shipping compiled whe
 unmeasured.
 
 7.12. The grammar allows `::` before a label or key. Does that mean anything for a value?
+
+Decided 2026-11-14: nothing. As tree-sitter-gram's own documentation says, `:` and `::` are semantically equivalent and
+the parser assigns no distinct meaning to `::` (by convention it suggests schema intent, and it is allowed on a record
+property but not on a map entry). The value after `key::` is an ordinary value, often a tagged string that describes a
+type; the separator is spelling (7.1) and stays in the syntax tree, where schema tools can read it.
 
 7.13. Does the model include null? TypeScript and Python add one, and gram has no null literal.
 
@@ -305,6 +314,11 @@ instead of crossing the boundary for each value. SPIKE-002 is the evidence: a ma
 call cost half as much as the same map calling back into the host for each element. What would the operation set
 be, how would the same pipeline be expressed in each language, and how does it relate to the host-language
 mappings (5.5) and to the per-language choice between native and bound implementations (7.11)?
+
+7.17. What are the exact forms of the known tags, defined in tree-sitter-gram's well-known tags document: `time`
+(offset and seconds optional?), `localtime`, `localdatetime`, `duration`, `point` (the corpus writes ``point`30 10` ``;
+is an SRID allowed, and how is a third coordinate written?) and `uuid`; and what is the status of the tags `week` and
+`weekDate` that the corpus uses?
 
 ## 8. ADRs
 
