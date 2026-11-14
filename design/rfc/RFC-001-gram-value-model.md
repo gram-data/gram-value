@@ -261,8 +261,7 @@ unmeasured.
 7.14. What is a record (an element's property map) in this model, and do property keys and their name quoting
 belong to it or to a graph layer?
 
-7.15. What are equality, ordering and hashing for values (`1` and `1.0`, `NaN`, two strings with the same
-text written in different quoting styles)?
+7.15. What are equality, ordering and hashing for values (`1` and `1.0`, `NaN`, `5kg` and `5.0kg`)?
 
 7.16. Should the Rust implementation explore a functional-programming system for values and operations that
 minimizes the data crossing a language boundary while allowing operations to be pushed down into the core? In
