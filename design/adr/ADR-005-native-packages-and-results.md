@@ -1,7 +1,7 @@
 ---
 id: ADR-005
 title: Native Packages, a Plain Sum Type and a Common Result Shape
-status: proposed
+status: accepted
 rfcs: [RFC-001, RFC-003]
 created: 2026-11-14
 ---

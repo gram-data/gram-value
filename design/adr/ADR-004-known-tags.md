@@ -1,7 +1,7 @@
 ---
 id: ADR-004
 title: Ten Known Tags as Plain Interpretation Functions
-status: proposed
+status: accepted
 rfcs: [RFC-001]
 created: 2026-11-14
 ---

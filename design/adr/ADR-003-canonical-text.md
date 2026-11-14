@@ -1,7 +1,7 @@
 ---
 id: ADR-003
 title: Canonical Gram Text for Every Value
-status: proposed
+status: accepted
 rfcs: [RFC-001]
 created: 2026-11-14
 ---

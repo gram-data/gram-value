@@ -59,8 +59,8 @@ Use `/adr-review` before moving a draft to `accepted`.
 
 | ADR | Title | Status | RFCs |
 |---|---|---|---|
-| [ADR-001](ADR-001-conformance-corpus-format.md) | The Conformance Corpus Is Gram Text | proposed | RFC-003, RFC-002 |
-| [ADR-002](ADR-002-value-kinds-and-equality.md) | The Eleven Value Kinds, Their Meaning and Equality | proposed | RFC-001 |
-| [ADR-003](ADR-003-canonical-text.md) | Canonical Gram Text for Every Value | proposed | RFC-001 |
-| [ADR-004](ADR-004-known-tags.md) | Ten Known Tags as Plain Interpretation Functions | proposed | RFC-001 |
-| [ADR-005](ADR-005-native-packages-and-results.md) | Native Packages, a Plain Sum Type and a Common Result Shape | proposed | RFC-001, RFC-003 |
+| [ADR-001](ADR-001-conformance-corpus-format.md) | The Conformance Corpus Is Gram Text | accepted | RFC-003, RFC-002 |
+| [ADR-002](ADR-002-value-kinds-and-equality.md) | The Eleven Value Kinds, Their Meaning and Equality | accepted | RFC-001 |
+| [ADR-003](ADR-003-canonical-text.md) | Canonical Gram Text for Every Value | accepted | RFC-001 |
+| [ADR-004](ADR-004-known-tags.md) | Ten Known Tags as Plain Interpretation Functions | accepted | RFC-001 |
+| [ADR-005](ADR-005-native-packages-and-results.md) | Native Packages, a Plain Sum Type and a Common Result Shape | accepted | RFC-001, RFC-003 |

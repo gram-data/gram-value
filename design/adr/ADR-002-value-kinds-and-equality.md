@@ -1,7 +1,7 @@
 ---
 id: ADR-002
 title: The Eleven Value Kinds, Their Meaning and Equality
-status: proposed
+status: accepted
 rfcs: [RFC-001]
 created: 2026-11-14
 ---

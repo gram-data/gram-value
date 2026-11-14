@@ -1,7 +1,7 @@
 ---
 id: RFC-001
 title: A Shared Model of Gram's Data Values
-status: draft
+status: accepted
 created: 2026-11-14
 adrs: [ADR-002, ADR-003, ADR-004, ADR-005]
 ---

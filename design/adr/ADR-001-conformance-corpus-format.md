@@ -1,7 +1,7 @@
 ---
 id: ADR-001
 title: The Conformance Corpus Is Gram Text
-status: proposed
+status: accepted
 rfcs: [RFC-003, RFC-002, RFC-001]
 created: 2026-11-14
 ---
@@ -95,5 +95,5 @@ Behavior on values gram cannot write (repeated keys, `NaN`, unwritable nesting, 
 
 - RFCs: RFC-003 (resolves questions 7.1, 7.2 and 7.3), RFC-002 (the entry classes and loss kinds a mapping case uses), RFC-001 (4.4, no second notation for values; 4.1, no parser in the model).
 - Prior art: JSON-Schema-Test-Suite, Bowtie and `toml-test`, cited in RFC-003.
-- Both parent RFCs are drafts; this ADR is accepted after RFC-003 passes its review.
+- RFC-003 passed its review for the `review` status; RFC-002 remains a draft.
 - The `gram` command-line tool and its skill: https://github.com/gram-data/tree-sitter-gram (`cargo install gram-data`, then `gram skill install`).

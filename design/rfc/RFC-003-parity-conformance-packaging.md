@@ -1,7 +1,7 @@
 ---
 id: RFC-003
 title: Parity, Conformance and Packaging Across Languages
-status: draft
+status: review
 created: 2026-11-14
 adrs: [ADR-001, ADR-005]
 ---
