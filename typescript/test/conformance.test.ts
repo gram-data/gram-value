@@ -155,7 +155,22 @@ function walk(root: Node, visit: (n: Node) => void): void {
 }
 
 function loadCases(file: string): Case[] {
-  const tree = parse(readFileSync(corpus(file), "utf8"));
+  return loadNodes(corpus(file));
+}
+
+/** The package's skip list (ADR-001 2.6): case id to reason. */
+function loadSkips(): Map<string, string> {
+  const skips = new Map<string, string>();
+  for (const node of loadNodes(join(here, "..", "skips.gram"))) {
+    assert.equal(node.label, "Skip", `${node.id}: a skips file holds Skip nodes`);
+    skips.set(propStr(node, "case"), propStr(node, "reason"));
+  }
+  return skips;
+}
+
+function loadNodes(path: string): Case[] {
+  const file = path;
+  const tree = parse(readFileSync(path, "utf8"));
   assert.ok(!tree.rootNode.hasError, `${file} has a syntax error`);
   const cases: Case[] = [];
   walk(tree.rootNode, (n) => {
@@ -337,24 +352,47 @@ test("corpus", () => {
   assert.equal(readFileSync(corpus("GRAMMAR_VERSION"), "utf8").trim(), GRAMMAR_VERSION);
   const seen = new Set<string>();
   const failures: string[] = [];
+  const skips = loadSkips();
+  const counts = new Map<string, number>();
   let results = "";
   for (const file of ["values.gram", "text.gram", "tags.gram", "mappings.gram"]) {
     for (const c of loadCases(file)) {
       assert.ok(!seen.has(c.id), `case id ${c.id} is used twice`);
       seen.add(c.id);
+      // A mapping case with no entry for this language does not apply to it (ADR-001 2.4).
+      if (c.label === "MappingCase" && !c.props.has("typescript")) {
+        counts.set("not-applicable", (counts.get("not-applicable") ?? 0) + 1);
+        results += `(${c.id}:Result {language: typescript, status: not-applicable})\n`;
+        continue;
+      }
       let status = "passed";
+      let extra = "";
+      let error: string | undefined;
       try {
         runCase(c);
       } catch (e) {
-        status = "failed";
-        failures.push(`${c.id}: ${e instanceof Error ? e.message : String(e)}`);
+        error = e instanceof Error ? e.message : String(e);
       }
-      results += `(${c.id}:Result {status: ${status}})\n`;
+      const reason = skips.get(c.id);
+      if (error === undefined && reason === undefined) status = "passed";
+      else if (error === undefined) {
+        status = "failed";
+        failures.push(`${c.id}: unexpected pass of a skipped case`);
+      } else if (reason !== undefined) {
+        status = "skipped";
+        extra = `, reason: ${JSON.stringify(reason)}`;
+      } else {
+        status = "failed";
+        failures.push(`${c.id}: ${error}`);
+      }
+      counts.set(status, (counts.get(status) ?? 0) + 1);
+      results += `(${c.id}:Result {language: typescript, status: ${status}${extra}})\n`;
     }
   }
+  for (const id of skips.keys()) assert.ok(seen.has(id), `skips.gram names an unknown case: ${id}`);
   mkdirSync(join(here, "..", "target"), { recursive: true });
   writeFileSync(join(here, "..", "target", "conformance-results.gram"), results);
   assert.equal(failures.length, 0, `${failures.length} failed of ${seen.size}:\n${failures.join("\n")}`);
   assert.ok(seen.size > 100);
-  console.log(`conformance: ${seen.size} passed`);
+  console.log(`conformance: ${JSON.stringify(Object.fromEntries(counts))}`);
 });

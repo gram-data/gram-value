@@ -11,3 +11,7 @@ with `gram lint --strict conformance/`. Each package parses them with its own tr
 lowering function in its tests; the Rust runner is `rust/tests/conformance.rs`. Mapping cases (`MappingCase`, in
 `mappings.gram`) state the native type per language, one case per line so that `scripts/gen-mapping-docs.py` can read
 them; it generates `docs/mappings/<language>.md`, and CI fails if those files are stale. Rust, TypeScript and Python have entries.
+
+Each package also keeps a `skips.gram` (cases it does not pass yet, with reasons) and writes
+`conformance-results.gram`; `scripts/gen-parity-matrix.py` merges the results of all packages into the parity matrix
+(see ADR-001 2.7), which CI publishes as a job summary.

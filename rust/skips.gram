@@ -1,0 +1,3 @@
+// Cases this package does not pass yet (ADR-001 2.6). One Skip node per case, for example:
+// (skip-1:Skip {case: integer-beyond-2-53, reason: "BigInt mapping not built yet"})
+// A skipped case is still run: it must fail, and a skipped case that passes fails the run.

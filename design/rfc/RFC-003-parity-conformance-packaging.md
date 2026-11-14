@@ -226,7 +226,7 @@ secrets), and what is the recovery when one registry fails after another succeed
 
 7.9. What does CI cost with several toolchains, and which languages run on every change and which on a schedule? (Deferred to an ADR.)
 
-7.10. Where and how is the parity matrix published? (Deferred to an ADR.)
+7.10. Where and how is the parity matrix published? (Deferred to an ADR.) For now ADR-001 2.7 publishes it as the continuous integration job summary and a build artifact; a permanent page is open.
 
 7.11. Do consumers (relate-gram, pattern-rs) run a subset of the corpus against their own use of the library, or
 only their own tests?
@@ -239,6 +239,8 @@ only their own tests?
 how is a corpus version tied to a package version?
 
 7.15. Does the parity matrix come from each package's own CI or from a central harness (6.7)?
+
+Decided 2026-11-14 in practice (ADR-001 2.7): the matrix comes from each package's own run, merged in one job. A central harness that drives every package through a protocol (6.7) is not built; it remains an option if packages outgrow one workflow.
 
 ## 8. ADRs
 

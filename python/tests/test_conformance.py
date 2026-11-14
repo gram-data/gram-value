@@ -6,6 +6,7 @@ The corpus is gram text. Each case's ``value`` is read with tree-sitter-gram and
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from dataclasses import dataclass
 from decimal import Decimal
@@ -148,8 +149,21 @@ class Case:
 
 
 def load_cases(file: str) -> list[Case]:
-    root = parse((CORPUS / file).read_text(encoding="utf-8"))
-    assert not root.has_error, f"{file} has a syntax error"
+    return load_nodes(CORPUS / file)
+
+
+def load_skips() -> dict[str, str]:
+    """The package's skip list (ADR-001 2.6): case id to reason."""
+    skips: dict[str, str] = {}
+    for node in load_nodes(Path(__file__).resolve().parents[1] / "skips.gram"):
+        assert node.label == "Skip", f"{node.id}: a skips file holds Skip nodes"
+        skips[prop_str(node, "case")] = prop_str(node, "reason")
+    return skips
+
+
+def load_nodes(path: Path) -> list[Case]:
+    root = parse(path.read_text(encoding="utf-8"))
+    assert not root.has_error, f"{path} has a syntax error"
     cases: list[Case] = []
     for n in walk(root):
         if n.type != "node_pattern":
@@ -160,7 +174,7 @@ def load_cases(file: str) -> list[Case]:
         if ident is None or labels is None or record is None:
             continue
         props = {key_name(field(p, "key")): lower(field(p, "value")) for p in named(record)}
-        cases.append(Case(text(ident), text(named(labels)[0]), props, props["value"]))
+        cases.append(Case(text(ident), text(named(labels)[0]), props, props.get("value", gv.boolean(False))))
     return sorted(cases, key=lambda c: c.id)
 
 
@@ -322,20 +336,42 @@ def test_corpus() -> None:
     seen: set[str] = set()
     failures: list[str] = []
     results: list[str] = []
+    skips = load_skips()
+    counts: dict[str, int] = {}
     for file in ("values.gram", "text.gram", "tags.gram", "mappings.gram"):
         for c in load_cases(file):
             assert c.id not in seen, f"case id {c.id} is used twice"
             seen.add(c.id)
+            # A mapping case with no entry for this language does not apply to it (ADR-001 2.4).
+            if c.label == "MappingCase" and "python" not in c.props:
+                counts["not-applicable"] = counts.get("not-applicable", 0) + 1
+                results.append(f"({c.id}:Result {{language: python, status: not-applicable}})")
+                continue
+            error: str | None = None
             try:
                 run_case(c)
-                status = "passed"
             except AssertionError as e:
+                error = str(e)
+            extra = ""
+            reason = skips.get(c.id)
+            if error is None and reason is None:
+                status = "passed"
+            elif error is None:
                 status = "failed"
-                failures.append(f"{c.id}: {e}")
-            results.append(f"({c.id}:Result {{status: {status}}})")
+                failures.append(f"{c.id}: unexpected pass of a skipped case")
+            elif reason is not None:
+                status = "skipped"
+                extra = ", reason: " + json.dumps(reason)
+            else:
+                status = "failed"
+                failures.append(f"{c.id}: {error}")
+            counts[status] = counts.get(status, 0) + 1
+            results.append(f"({c.id}:Result {{language: python, status: {status}{extra}}})")
+    for skipped_id in skips:
+        assert skipped_id in seen, f"skips.gram names an unknown case: {skipped_id}"
     out = Path(__file__).resolve().parents[1] / "target"
     out.mkdir(exist_ok=True)
     (out / "conformance-results.gram").write_text("\n".join(results) + "\n")
     assert not failures, f"{len(failures)} failed of {len(seen)}:\n" + "\n".join(failures)
     assert len(seen) > 100
-    print(f"conformance: {len(seen)} passed")
+    print(f"conformance: {counts}")

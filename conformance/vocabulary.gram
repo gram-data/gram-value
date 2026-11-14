@@ -90,3 +90,9 @@
 (str:PythonNative)
 (list:PythonNative)
 (dict:PythonNative)
+
+// Statuses of a result (ADR-001 2.7).
+(passed:Status)
+(failed:Status)
+(skipped:Status)
+(not-applicable:Status)

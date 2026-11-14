@@ -53,11 +53,13 @@ A runner runs a `MappingCase` only for a language that has an entry in it. A cas
 
 ### 2.6 Skips live in the package
 
-Each package keeps a file `skips.gram` next to its runner, with one node per skipped case: `(skip-1:Skip {case: integer-beyond-2-53, reason: "BigInt mapping not built yet"})`. A skipped case is not run and is reported as skipped. A skip that names an unknown case fails the run, and a skipped case that passes is reported as an unexpected pass and also fails the run, so a skip cannot outlive its reason.
+Each package keeps a file `skips.gram` next to its runner, with one node per skipped case: `(skip-1:Skip {case: integer-beyond-2-53, reason: "BigInt mapping not built yet"})`. A skipped case is still run, and it must fail: the runner then reports it as skipped, with the reason. A skip that names an unknown case fails the run, and a skipped case that passes is reported as an unexpected pass and also fails the run, so a skip cannot outlive its reason.
 
-### 2.7 Runners report in gram
+### 2.7 Runners report in gram, and the matrix comes from the reports
 
-A runner writes `conformance-results.gram`, one node per case, labelled `Result`, with the case id and a `status` of `passed`, `failed` or `skipped`. The parity matrix is generated from the result files of all packages, so the generator is language-neutral. The shape is a starting point that may change when the matrix and its generator are designed (RFC-003 7.15), and where the matrix is published is not decided here (RFC-003 7.10).
+A runner writes `conformance-results.gram` (in a `target/` folder next to the package), one node per case labelled `Result`, with the case id, the `language` and a `status` of `passed`, `failed`, `skipped` or `not-applicable`; a skipped result also carries the `reason` from the skip list: `(integer-zero:Result {language: rust, status: passed})`. A `MappingCase` with no entry for a language is `not-applicable` for it, which differs from a skip.
+
+`scripts/gen-parity-matrix.py` reads the result files of all packages and the case list of the corpus and writes the parity matrix: a summary per language, a table per kind of case, the gaps (failed, skipped and missing results, with reasons) and every case against every language. It exits with 1 when any case failed or has no result, so an unreviewed gap fails the build, and with 0 when the only gaps are declared skips. The continuous integration workflow runs every package, collects the result files, generates the matrix, and publishes it as the job summary and as a build artifact. A permanent published page is not decided here (RFC-003 7.10).
 
 ### 2.8 Not decided here
 

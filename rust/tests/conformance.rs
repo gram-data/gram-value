@@ -172,7 +172,30 @@ struct Case {
 }
 
 fn load_cases(file: &str) -> Vec<Case> {
-    let src = std::fs::read_to_string(corpus_dir().join(file)).unwrap();
+    load_nodes(&corpus_dir().join(file))
+}
+
+/// The package's skip list (ADR-001 2.6): case id to reason.
+fn load_skips() -> BTreeMap<String, String> {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("skips.gram");
+    let mut skips = BTreeMap::new();
+    for node in load_nodes(&path) {
+        assert_eq!(
+            node.label, "Skip",
+            "{}: a skips file holds Skip nodes",
+            node.id
+        );
+        skips.insert(
+            prop_str(&node, "case").to_string(),
+            prop_str(&node, "reason").to_string(),
+        );
+    }
+    skips
+}
+
+fn load_nodes(path: &Path) -> Vec<Case> {
+    let file = path.display();
+    let src = std::fs::read_to_string(path).unwrap();
     let tree = parse(&src);
     assert!(!tree.root_node().has_error(), "{file} has a syntax error");
     let mut cases = Vec::new();
@@ -196,7 +219,7 @@ fn load_cases(file: &str) -> Vec<Case> {
                     let k = key_name(&src, p.child_by_field_name("key").unwrap());
                     props.insert(k, lower(&src, p.child_by_field_name("value").unwrap()));
                 }
-                let value = props.get("value").cloned().expect("a case has a value");
+                let value = props.get("value").cloned().unwrap_or(Value::Boolean(false));
                 cases.push(Case {
                     id,
                     label: labels[0].clone(),
@@ -270,6 +293,7 @@ fn corpus() {
     );
 
     let vocab = vocabulary();
+    let skips = load_skips();
     let mut results = String::new();
     let mut seen = BTreeSet::new();
     let mut failures = Vec::new();
@@ -282,11 +306,34 @@ fn corpus() {
                 "case id {} is used twice",
                 case.id
             );
+            // A mapping case with no entry for this language does not apply to it (ADR-001 2.4).
+            if case.label == "MappingCase" && !case.props.contains_key("rust") {
+                *counts.entry("not-applicable".into()).or_default() += 1;
+                writeln!(
+                    results,
+                    "({}:Result {{language: rust, status: not-applicable}})",
+                    case.id
+                )
+                .unwrap();
+                continue;
+            }
             let outcome =
                 std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| run_case(&case, &vocab)));
-            let status = match outcome {
-                Ok(()) => "passed",
-                Err(e) => {
+            let mut extra = String::new();
+            let status = match (outcome, skips.get(&case.id)) {
+                (Ok(()), None) => "passed",
+                (Ok(()), Some(_)) => {
+                    failures.push(format!("{}: unexpected pass of a skipped case", case.id));
+                    "failed"
+                }
+                (Err(_), Some(reason)) => {
+                    extra = format!(
+                        ", reason: \"{}\"",
+                        reason.replace('\\', "\\\\").replace('"', "\\\"")
+                    );
+                    "skipped"
+                }
+                (Err(e), None) => {
                     let msg = e
                         .downcast_ref::<String>()
                         .cloned()
@@ -297,8 +344,16 @@ fn corpus() {
                 }
             };
             *counts.entry(status.to_string()).or_default() += 1;
-            writeln!(results, "({}:Result {{status: {status}}})", case.id).unwrap();
+            writeln!(
+                results,
+                "({}:Result {{language: rust, status: {status}{extra}}})",
+                case.id
+            )
+            .unwrap();
         }
+    }
+    for id in skips.keys() {
+        assert!(seen.contains(id), "skips.gram names an unknown case: {id}");
     }
     let out = Path::new(env!("CARGO_MANIFEST_DIR")).join("target/conformance-results.gram");
     let _ = std::fs::write(out, results);

@@ -22,6 +22,12 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: results-rust
+          path: rust/target/conformance-results.gram
+          if-no-files-found: error
 
   typescript:
     runs-on: ubuntu-latest
@@ -39,6 +45,12 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - run: npm test
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: results-typescript
+          path: typescript/target/conformance-results.gram
+          if-no-files-found: error
 
   python:
     runs-on: ubuntu-latest
@@ -57,8 +69,16 @@ jobs:
       - run: uv run mypy
       - run: uv run pytest
       - run: uv build
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: results-python
+          path: python/target/conformance-results.gram
+          if-no-files-found: error
 
   corpus:
+    needs: [rust, typescript, python]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,3 +86,23 @@ jobs:
       - run: cargo install gram-data --version 0.7.0 --locked
       - run: gram lint --strict conformance/
       - run: python3 scripts/gen-mapping-docs.py --check
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: results-*
+          path: results
+      - run: gram lint --strict results/
+      - run: python3 scripts/test_gen_parity_matrix.py
+      - name: Parity matrix
+        run: |
+          python3 scripts/gen-parity-matrix.py --out parity.md \
+            rust=results/results-rust/conformance-results.gram \
+            typescript=results/results-typescript/conformance-results.gram \
+            python=results/results-python/conformance-results.gram
+      - name: Publish the matrix to the job summary
+        if: ${{ !cancelled() }}
+        run: cat parity.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: parity-matrix
+          path: parity.md
