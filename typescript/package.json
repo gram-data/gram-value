@@ -1,6 +1,6 @@
 {
   "name": "@gram-data/value",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The data values of the gram notation: kinds, equality, canonical text, known-tag interpretation and mapping to JavaScript values",
   "license": "MIT",
   "repository": {
@@ -45,5 +45,9 @@
     "gram",
     "graph",
     "values"
-  ]
+  ],
+  "homepage": "https://github.com/gram-data/gram-value/tree/main/typescript#readme",
+  "bugs": {
+    "url": "https://github.com/gram-data/gram-value/issues"
+  }
 }
