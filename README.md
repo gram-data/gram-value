@@ -14,8 +14,9 @@ built a third. `gram-value` is meant to be the one they share.
 Early. The design is written: [RFCs](design/rfc/README.md) and [ADRs](design/adr/README.md) fix the value kinds,
 equality, canonical text, the ten known tags and the native-package strategy, and [`spec/`](spec/README.md) states
 the rules. The Rust package in [`rust/`](rust/) implements them, including the conversions to Rust's own types, and passes
-the [conformance cases](conformance/README.md) (150). The Rust mapping table is in
-[`docs/mappings/rust.md`](docs/mappings/rust.md). TypeScript and Python come next. The origin of the project is the note
+the [conformance cases](conformance/README.md) (153). The Rust mapping table is in
+[`docs/mappings/rust.md`](docs/mappings/rust.md). The TypeScript package in [`typescript/`](typescript/) does the same for JavaScript
+([`docs/mappings/typescript.md`](docs/mappings/typescript.md)). Python comes next. The origin of the project is the note
 [gram-value: a shared home for gram's data values](https://github.com/relatedb/relate-gram/blob/main/design/notes/2026-11-14-gram-value.md).
 
 ## What it is, and is not

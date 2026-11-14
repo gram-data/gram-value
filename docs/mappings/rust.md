@@ -32,3 +32,6 @@ and the gram text the native value writes back as (ADR-006).
 | map-point: a point | `point`SRID=4326;12.5 55.7`` | exact | Point | none | `point`SRID=4326;12.5 55.7`` |
 | map-uuid: a uuid | `uuid`123e4567-e89b-12d3-a456-426614174000`` | exact | Uuid | none | `uuid`123e4567-e89b-12d3-a456-426614174000`` |
 | map-week: a week | `week`2024W35`` | exact | Week | none | `week`2024W35`` |
+| map-integer-safe-max: largest safe JavaScript integer | `9007199254740991` | exact | i64 | none | `9007199254740991` |
+| map-integer-beyond-2-53: one past 2^53 is a bigint, not rounded | `9007199254740993` | exact | i64 | none | `9007199254740993` |
+| map-big-decimal-overflow: a decimal beyond the float range | `10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0` | unsupported | none | none | none |
