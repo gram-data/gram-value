@@ -247,6 +247,15 @@ back gives the same string.
 
 7.6. How does a consumer extend the known-tag registry, and how does it state that it supports only some tags?
 
+Decided 2026-11-14: `gram-value` ships a fixed standard set of known tags (the eight of relate-gram's ADR-011, extended
+by later decisions), each with its own interpretation function, and one convenience function that dispatches over the
+set. There is no registry object. A consumer extends by writing its own function over a plain `{tag, content}` value,
+and supports fewer tags by calling only the ones it wants. The generic layer checks each tag's form and ranges as
+ADR-011 states them (calendar days and clock ranges; an offset required for `time` and `datetime` and none for the
+local forms; durations; UUID groups; a point as extended well-known text with any integer SRID and two or three
+finite coordinates). Rules that depend on a consumer (relate-gram's four SRIDs, a latitude limit for geographic SRIDs,
+whether a zone name is known) belong to the consumer and are applied to the interpreted result.
+
 7.7. Do the text-writing rules live in the model's package or a sibling? (Deferred to an ADR.)
 
 7.8. How are the host-language mappings specified, tested and reported as lossy?
