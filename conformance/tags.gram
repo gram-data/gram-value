@@ -43,6 +43,7 @@
 (tag-point:TagCase {name: "two coordinates", value: point`30 10`, outcome: accepted, interpreted: "30 10"})
 (tag-point-z:TagCase {name: "three coordinates", value: point`30 10 5`, outcome: accepted, interpreted: "30 10 5"})
 (tag-point-normal:TagCase {name: "numbers are written shortest", value: point`30.0 -0`, outcome: accepted, interpreted: "30 0"})
+(tag-point-large:TagCase {name: "a large coordinate is written without an exponent", value: point`1000000000000000000000 0.0000001`, outcome: accepted, interpreted: "1000000000000000000000 0.0000001"})
 (tag-point-srid:TagCase {name: "an SRID prefix", value: point`SRID=4326;12.5 55.7`, outcome: accepted, interpreted: "SRID=4326;12.5 55.7"})
 (tag-point-one:TagCase {name: "one coordinate", value: point`30`, outcome: rejected, diagnostic: invalid-form})
 (tag-point-four:TagCase {name: "four coordinates", value: point`1 2 3 4`, outcome: rejected, diagnostic: invalid-form})

@@ -1,7 +1,7 @@
 // Interpretation of the ten known tags (spec/tags.md, ADR-004).
 
 import { diagnostic, fail, ok, type Result } from "./diagnostic.ts";
-import { tagged, type Value } from "./value.ts";
+import { floatText, tagged, type Value } from "./value.ts";
 
 export interface DateParts {
   readonly year: number;
@@ -315,7 +315,9 @@ function parseDuration(s: string): DurationParts {
 const NUMBER = /^-?\d+(\.\d+)?$/;
 
 function numberText(f: number): string {
-  return f === 0 ? "0" : String(f);
+  if (f === 0) return "0";
+  const t = floatText(f);
+  return t.endsWith(".0") ? t.slice(0, -2) : t;
 }
 
 function parsePoint(s: string): [PointParts, string] {
