@@ -268,6 +268,10 @@ instead of defining them. The exact forms are question 7.17.
 
 7.10. Is the Haskell implementation (pattern-hs) a peer of the other languages or their reference?
 
+Decided 2026-11-14: a peer. Haskell is one more language in the parity matrix, held to the same conformance corpus as
+Rust, TypeScript and Python, with no special standing; the contract is the corpus (ADR-001). pattern-hs can remain the
+reference for pattern-rs's pattern operations, which is a different layer.
+
 7.11. Per language, is the package native, a binding to a shared core, or generated from a schema, and what does
 a user pay to cross the boundary? SPIKE-002 answers it for TypeScript (native) and leaves Python open between a
 native model and a PyO3 core, to be decided on the cost of shipping compiled wheels; Go, Swift and Haskell are
