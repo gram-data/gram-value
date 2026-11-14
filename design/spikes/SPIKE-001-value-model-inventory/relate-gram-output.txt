@@ -1,0 +1,220 @@
+== integer 0: (n {k: 0})
+  exit 0
+  | (n {k: 0})
+== integer -7: (n {k: -7})
+  exit 0
+  | (n {k: -7})
+== integer i64 max: (n {k: 9223372036854775807})
+  exit 0
+  | (n {k: 9223372036854775807})
+== integer past i64: (n {k: 9223372036854775808})
+  exit 1
+  | error[value.integer-range]: the integer `9223372036854775808` does not fit in 64 bits
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: 9223372036854775808})
+  |   |        ^^^^^^^^^^^^^^^^^^^
+== hexadecimal: (n {k: 0x1F})
+  exit 0
+  | (n {k: 31})
+== octal: (n {k: 010})
+  exit 1
+  | error[value.octal]: the octal literal `010` is ambiguous; write the value in decimal or hexadecimal
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: 010})
+  |   |        ^^^
+== decimal: (n {k: 3.14})
+  exit 0
+  | (n {k: 3.14})
+== decimal 1.0: (n {k: 1.0})
+  exit 0
+  | (n {k: 1.0})
+== decimal negative: (n {k: -0.5})
+  exit 0
+  | (n {k: -0.5})
+== measurement 5kg: (n {k: 5kg})
+  exit 1
+  | error[value.measurement]: the measurement `5kg` has no Cypher type; write it as a number and a unit property
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: 5kg})
+  |   |        ^^^
+== measurement 5.0kg: (n {k: 5.0kg})
+  exit 1
+  | error[value.measurement]: the measurement `5.0kg` has no Cypher type; write it as a number and a unit property
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: 5.0kg})
+  |   |        ^^^^^
+== measurement -5m: (n {k: -5m})
+  exit 1
+  | error[value.measurement]: the measurement `-5m` has no Cypher type; write it as a number and a unit property
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: -5m})
+  |   |        ^^^
+== measurement 3.5kg: (n {k: 3.5kg})
+  exit 1
+  | error[value.measurement]: the measurement `3.5kg` has no Cypher type; write it as a number and a unit property
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: 3.5kg})
+  |   |        ^^^^^
+== range 1..5: (n {k: 1..5})
+  exit 1
+  | error[value.range]: the range `1..5` has no Cypher type; write the bounds as separate properties
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: 1..5})
+  |   |        ^^^^
+== range open upper: (n {k: 1...})
+  exit 1
+  | error[value.range]: the range `1...` has no Cypher type; write the bounds as separate properties
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: 1...})
+  |   |        ^^^^
+== range open lower: (n {k: ...5})
+  exit 1
+  | error[value.range]: the range `...5` has no Cypher type; write the bounds as separate properties
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: ...5})
+  |   |        ^^^^
+== range decimals: (n {k: 1.5..2.5})
+  exit 1
+  | error[value.range]: the range `1.5..2.5` has no Cypher type; write the bounds as separate properties
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: 1.5..2.5})
+  |   |        ^^^^^^^^
+== range measurements: (n {k: 1.5m..2m})
+  exit 1
+  | error[value.range]: the range `1.5m..2m` has no Cypher type; write the bounds as separate properties
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: 1.5m..2m})
+  |   |        ^^^^^^^^
+== range hex: (n {k: 0x1..0x10})
+  exit 1
+  | error[value.range]: the range `0x1..0x10` has no Cypher type; write the bounds as separate properties
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: 0x1..0x10})
+  |   |        ^^^^^^^^^
+== boolean: (n {k: true})
+  exit 0
+  | (n {k: true})
+== symbol: (n {k: active})
+  exit 0
+  | (n {k: "active"})
+== symbol with punctuation: (n {k: a.b-c@d})
+  exit 0
+  | (n {k: "a.b-c@d"})
+== string double: (n {k: "dq"})
+  exit 0
+  | (n {k: "dq"})
+== string single: (n {k: 'sq'})
+  exit 0
+  | (n {k: "sq"})
+== string backtick: (n {k: `bt`})
+  exit 0
+  | (n {k: "bt"})
+== string escapes: (n {k: "a\n\t\\\"b"})
+  exit 0
+  | (n {k: "a\n\t\\\"b"})
+== string fenced: (n {k: ```\nline1\nline2```})
+  exit 0
+  | (n {k: "line1\nline2"})
+== string empty: (n {k: ""})
+  exit 0
+  | (n {k: ""})
+== tagged backtick: (n {k: md`# T`})
+  exit 0
+  | warning[value.tag-dropped]: the tag `md` was dropped; the content was loaded as a string
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: md`# T`})
+  |   |        ^^^^^^^
+  | 
+== tagged fenced: (n {k: ```md\nbody```})
+  exit 0
+  | warning[value.tag-dropped]: the tag `md` was dropped; the content was loaded as a string
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: ```md
+  |   |        ^^^^^
+  | 
+== tagged date: (n {k: date`2024-01-15`})
+  exit 0
+  | (n {k: date`2024-01-15`})
+== array empty: (n {k: []})
+  exit 0
+  | (n {k: []})
+== array integers: (n {k: [1, 2, 3]})
+  exit 0
+  | (n {k: [1, 2, 3]})
+== array mixed: (n {k: [1, "a", true]})
+  exit 1
+  | error[value.array-mixed]: an array holds one kind of value; found a string after integer value(s)
+  |  --> <stdin>:1:12
+  |   |
+  | 1 | (n {k: [1, "a", true]})
+  |   |            ^^^
+== array ranges and measurements: (n {k: [1..2, 5kg]})
+  exit 1
+  | error[value.range]: the range `1..2` has no Cypher type; write the bounds as separate properties
+  |  --> <stdin>:1:9
+  |   |
+  | 1 | (n {k: [1..2, 5kg]})
+  |   |         ^^^^
+  | 
+== array of arrays: (n {k: [[1]]})
+  exit 1
+  | error[parse.error]: syntax error
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: [[1]]})
+  |   |        ^
+  | 
+== map: (n {k: {b: 1, a: 2}})
+  exit 1
+  | error[value.map]: a nested map has no Cypher type; write its entries as separate properties
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: {b: 1, a: 2}})
+  |   |        ^^^^^^^^^^^^
+== map with array: (n {k: {a: [1, 2]}})
+  exit 1
+  | error[value.map]: a nested map has no Cypher type; write its entries as separate properties
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: {a: [1, 2]}})
+  |   |        ^^^^^^^^^^^
+== map repeated key: (n {k: {a: 1, a: 2}})
+  exit 1
+  | error[value.map]: a nested map has no Cypher type; write its entries as separate properties
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: {a: 1, a: 2}})
+  |   |        ^^^^^^^^^^^^
+== map nested: (n {k: {a: {b: 1}}})
+  exit 1
+  | error[parse.error]: syntax error
+  |  --> <stdin>:1:8
+  |   |
+  | 1 | (n {k: {a: {b: 1}}})
+  |   |        ^^^
+  | 
+== record repeated key: (n {k: 1, k: 2})
+  exit 1
+  | error[key.duplicate]: the key `k` is repeated in one record
+  |  --> <stdin>:1:11
+  |   |
+  | 1 | (n {k: 1, k: 2})
+  |   |           ^
+  |   |
+== record key order: (n {z: 1, y: 2, x: 3, w: 4})
+  exit 0
+  | (n {w: 4, x: 3, y: 2, z: 1})

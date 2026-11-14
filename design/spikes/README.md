@@ -54,3 +54,4 @@ into the RFC rather than copied verbatim.
 
 | Spike | Title | Status | RFCs |
 |---|---|---|---|
+| [SPIKE-001](SPIKE-001-value-model-inventory/SPIKE.md) | Inventory of Existing Gram Value Models | done | RFC-001 |
