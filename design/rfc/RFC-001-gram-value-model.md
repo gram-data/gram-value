@@ -12,7 +12,8 @@ adrs: []
 
 Gram is a plain-text notation for graphs and patterns. Every element in a gram file can carry a record of
 properties, and a property value can be any of a small family of kinds: integers (written in decimal,
-hexadecimal or octal), decimals, booleans, symbols, strings in four quoting styles, ranges such as `1..5`,
+hexadecimal or octal), decimals, booleans, strings (in four quoting styles, or as a bare word called a symbol),
+ranges such as `1..5`,
 measurements such as `5kg`, arrays, maps, and tagged strings such as ``date`2024-01-15` `` that name a type for
 a piece of text. A program that reads gram has to decide what each of these is in memory, how to write it back
 as gram text, and how it corresponds to the host language's own values.
@@ -152,8 +153,8 @@ mapping the list to new values, reading the result). In TypeScript, a Rust core 
 times slower per value than plain objects (12 times in the best case, a single call for the whole map), and also
 brings a `BigInt` for every 64-bit integer, handles that must be freed by hand, and asynchronous initialization in
 a browser. In Python, a Rust core behind PyO3 was as fast as native dataclasses or faster (and 4.5 times faster
-at writing text), so the Python choice rests on distribution, a compiled wheel per platform. Candidate direction:
-Rust is the core natively, TypeScript is native, and Python stays open.
+at writing text), so the Python choice rests on distribution, a compiled wheel per platform. Decided (7.11): every language
+package is native.
 
 ### 5.8 Values are data; results carry their diagnostics
 
@@ -163,7 +164,7 @@ together with the diagnostics or losses found, accumulated across independent va
 first. Each language adds idiomatic helpers for composing results (`Result` and `?` in Rust, result objects in
 TypeScript and Python, monadic wrappers in Haskell). A small structural traversal (a fold or map over a value's
 parts) is offered only if the conformance corpus can test it identically in every language. Whether the Rust
-implementation should go further is question 7.16.
+implementation should go further was question 7.16, closed: operations stay plain functions.
 
 ## 6. Alternatives Considered
 
@@ -200,48 +201,159 @@ in relate-gram) is ported, and a generator or shared test vectors are what keep 
 7.1. Does a value record only what it means, or also how it was written (hexadecimal versus decimal, quoting
 style)?
 
+Decided 2026-11-14: a value records only what it means, including its numeric kind (integer, decimal,
+measurement). How it was written (hexadecimal or decimal, which quote) and where stay in the parser's syntax
+tree. SPIKE-001 found that spelling changes meaning only where a number's kind changes (`5.0kg` and `5kg`, `1.0` and
+`1`, octal), and formatters and linters work on the syntax tree.
+
 7.2. How is a map stored: ordered, and do repeated keys survive, fail, or collapse?
+
+Decided 2026-11-14: a map is an unordered set of entries with unique keys, equal to any other map with the same
+entries, and its canonical text writes the keys in byte order of their UTF-8 text. A repeated key is an error, which
+the lowering reports with its position (the grammar's own `gram lint` already reports `duplicate-key` for maps and
+for records); it is never kept silently as last-wins. The order an author wrote entries in is spelling (7.1) and
+stays in the syntax tree.
 
 7.3. What does an octal literal mean (`010` is 8 or 10), and what are the width and range of an integer, given
 that gram text has no limit?
 
+Decided 2026-11-14: an octal literal is base 8 (`010` is 8, `042` is 34); `019` is not an octal and the grammar
+rejects it as a syntax error. An integer is a signed 64-bit value. An integer outside that range is a separate kind,
+`big_integer`, that holds the exact digits (a sign and decimal digits without leading zeros); an integer that fits in
+64 bits is always `integer`, never `big_integer`, so every value has one form. Hexadecimal and octal literals take no
+sign in the grammar, so only plain integers can be negative.
+
 7.4. Is a decimal a 64-bit float or an exact decimal? How is a measurement represented (a number and a unit,
 with the spelling kept?), and how is a range represented, including half-open ranges and measurements as ends?
 
+Decided 2026-11-14: a decimal is a 64-bit float when that float writes back as the same number (the literal with
+trailing zeros after the point dropped, keeping at least one digit, equals the float's shortest text: `0.1`, `3.14`,
+`1.50` as `1.5`), and otherwise a separate `big_decimal` kind that holds the exact digits, so every value has one form.
+A measurement is a magnitude, which is any numeric value (integer, `big_integer`, decimal or `big_decimal`), and a unit
+string, so `5kg` and `5.0kg` differ in the kind of their magnitude and nothing is rounded. A range has an optional lower
+end and an optional upper end, each a numeric value or a measurement, so `1.5m..2m` and `0x1..0x10` are representable
+and the open forms `1...` and `...5` write back; a range is inclusive, as the grammar's notes say, and an absent end is
+unbounded. The model does not check that the two ends are of one kind; a consumer may.
+
 7.5. Are the four quoting styles of a string one kind, and is a symbol a string or a kind of its own?
+
+Decided 2026-11-14: the four quoting styles are one `string` kind (they are spelling, by 7.1), and a symbol in a value
+position is a string too: `gram-value` sees symbols only as values, where they are always strings, so there is no
+`symbol` kind. Identifiers, property names and tags are symbols in the grammar but are not values; the one place the
+rule reaches a value is a tagged string's tag, whose text must be a symbol (the grammar does not allow a backticked
+tag). The canonical text of a string is a bare word when its text matches the grammar's symbol rule and is not `true`
+or `false`, and a double-quoted string otherwise, so `active` stays `active` and `Ada Lovelace` is quoted; reading it
+back gives the same string.
 
 7.6. How does a consumer extend the known-tag registry, and how does it state that it supports only some tags?
 
+Decided 2026-11-14: `gram-value` ships a fixed standard set of known tags (the eight of relate-gram's ADR-011, extended
+by later decisions), each with its own interpretation function, and one convenience function that dispatches over the
+set. There is no registry object. A consumer extends by writing its own function over a plain `{tag, content}` value,
+and supports fewer tags by calling only the ones it wants. The forms the generic
+layer accepts are defined in `gram-value`'s specification (question 7.17), consistent with tree-sitter-gram's
+corpus, which writes ``time`17:35` `` and ``point`30 10` ``; those forms must be accepted. Stricter rules that depend
+on a consumer (relate-gram's required offset, its points with an SRID and its four SRIDs, a latitude limit, whether
+a zone name is known) belong to the consumer's profile and are applied to the interpreted result. relate-gram's
+ADR-011, which defined its forms before the grammar's corpus was read, is to be amended so that it narrows the
+generic forms instead of defining them.
+
 7.7. Do the text-writing rules live in the model's package or a sibling? (Deferred to an ADR.)
+
+Decided 2026-11-14: in the model's package. Every language package writes canonical text itself, because equality,
+hashing and the total order are defined through it (7.15), the canonical form of strings and the key order of maps
+depend on it (7.2, 7.5), and the conformance corpus's text cases test it in the package that holds the values.
 
 7.8. How are the host-language mappings specified, tested and reported as lossy?
 
+Answered 2026-11-14 by RFC-002 (the tables, entry classes and loss data), ADR-001 (the corpus tests every mapping and
+states the loss as a round-trip text) and RFC-003 (the parity matrix). What remains is RFC-002's own open questions.
+
 7.9. How does the value type evolve when several projects depend on it? (Deferred to an ADR.)
 
+Decided 2026-11-14: the set of kinds is closed, and adding a kind is a breaking change: a major release (a minor
+release before 1.0, under RFC-003's version policy), after which every consumer's exhaustive handling of the kinds fails
+to compile or check until it decides what the new kind means to it. A new kind lands with its corpus cases first
+(RFC-003 5.8).
+
 7.10. Is the Haskell implementation (pattern-hs) a peer of the other languages or their reference?
+
+Decided 2026-11-14: a peer. Haskell is one more language in the parity matrix, held to the same conformance corpus as
+Rust, TypeScript and Python, with no special standing; the contract is the corpus (ADR-001). pattern-hs can remain the
+reference for pattern-rs's pattern operations, which is a different layer.
 
 7.11. Per language, is the package native, a binding to a shared core, or generated from a schema, and what does
 a user pay to cross the boundary? SPIKE-002 answers it for TypeScript (native) and leaves Python open between a
 native model and a PyO3 core, to be decided on the cost of shipping compiled wheels; Go, Swift and Haskell are
 unmeasured.
 
+Decided 2026-11-14: every language package is native: Rust, TypeScript and Python first, and Go, Swift and Haskell when
+each joins, with no shared core and no compiled extension to ship. A TypeScript user avoids WebAssembly (SPIKE-002), a
+Python user gets a pure wheel, and parity rests on the conformance corpus and a possible schema generator (6.7); the
+canonical writer and the known-tag validators are written once per language. A PyO3 core for Python remains available
+later as an optimization.
+
 7.12. The grammar allows `::` before a label or key. Does that mean anything for a value?
 
+Decided 2026-11-14: nothing. As tree-sitter-gram's own documentation says, `:` and `::` are semantically equivalent and
+the parser assigns no distinct meaning to `::` (by convention it suggests schema intent, and it is allowed on a record
+property but not on a map entry). The value after `key::` is an ordinary value, often a tagged string that describes a
+type; the separator is spelling (7.1) and stays in the syntax tree, where schema tools can read it.
+
 7.13. Does the model include null? TypeScript and Python add one, and gram has no null literal.
+
+Decided 2026-11-14: the model has no null. Gram has no null literal, so every value in the model can be written as gram
+text. A host's null is handled by the mapping tables, where writing it as gram is an unsupported entry reported to the
+consumer (RFC-002 5.6).
 
 7.14. What is a record (an element's property map) in this model, and do property keys and their name quoting
 belong to it or to a graph layer?
 
-7.15. What are equality, ordering and hashing for values (`1` and `1.0`, `NaN`, a symbol and a string with the
-same text)?
+Decided 2026-11-14: an element's property record is a `map` value, with unique string keys and no order (7.2); there is
+no separate record type. Property keys are strings in the model, and whether a key was written as a bare symbol, a
+backticked name or a double-quoted name is spelling (7.1). The model allows any value inside any container, so it
+matches how every host represents JSON-like data and survives a grammar that relaxes the nesting rules; the grammar's
+limits (an array holds scalars, a map entry holds a scalar or an array) are enforced by the parser, and writing a
+value the grammar cannot express (an array inside an array) is a reported error, like any unwritable value.
+
+7.15. What are equality, ordering and hashing for values (`1` and `1.0`, `NaN`, `5kg` and `5.0kg`)?
+
+Decided 2026-11-14: two values are equal by default when they have the same kind and the same canonical text, so `1` is
+not equal to `1.0`, `5kg` is not equal to `5.0kg`, `-0.0` is not equal to `0.0`, and maps are equal whatever order their
+entries were written in. The model rejects `NaN` and infinities at construction (gram cannot write them), so equality is
+total and hashing follows from it. Other equivalence functions (numeric equivalence across kinds, for example) may be
+offered later as separate named functions; they do not replace equality or hashing. The model specifies a total order:
+by kind in a fixed order, then within a kind (integers and decimals numerically, strings by UTF-8 bytes, arrays
+lexicographically, maps by their sorted entries, tags by tag then content, ranges and measurements by their parts). The
+order is a convenience and means nothing about the values.
 
 7.16. Should the Rust implementation explore a functional-programming system for values and operations that
 minimizes the data crossing a language boundary while allowing operations to be pushed down into the core? In
 such a system a host language would send a description of a pipeline of operations and receive one result,
-instead of crossing the boundary for each value. SPIKE-002 is the evidence: a map run inside the core in one
-call cost half as much as the same map calling back into the host for each element. What would the operation set
-be, how would the same pipeline be expressed in each language, and how does it relate to the host-language
-mappings (5.5) and to the per-language choice between native and bound implementations (7.11)?
+instead of crossing the boundary for each value. SPIKE-002 measured the benefit: a map run inside the core in one
+call cost half as much as the same map calling back into the host for each element.
+
+Decided 2026-11-14: closed for `gram-value`. Every language package is native (7.11), so no package has a boundary
+to cross, and operations on values stay plain functions. A pipeline system that pushes operations into a consumer
+such as Relate would belong to that consumer or a separate project, and could start from SPIKE-002.
+
+7.17. What are the exact forms of the known tags: `time` (offset and seconds optional?), `localtime`, `localdatetime`,
+`duration`, `point` (the corpus writes ``point`30 10` ``; is an SRID allowed, and how is a third coordinate
+written?) and `uuid`; and what is the status of the tags `week` and `weekDate` that the corpus uses?
+
+Decided 2026-11-14:
+- **The set.** Ten known tags: `date`, `time`, `localtime`, `datetime`, `localdatetime`, `duration`, `point`, `uuid`,
+  `week` and `weekDate` (the last two as ISO 8601 week forms, ``week`2024W35` `` and ``weekDate`2024W35-5` ``, as the
+  grammar's corpus writes them). Every other tag, `url` and `md` among them, passes through as an unknown tag.
+- **`time` and `datetime`.** The offset is optional and so are the seconds and fraction, as ISO 8601 allows
+  (``time`17:35` ``, ``time`17:42:03.149` ``, ``time`17:42Z` ``, ``time`17:42+01:00` ``). `localtime` and
+  `localdatetime` are the same forms with no offset allowed. A consumer that requires an offset applies that in its
+  own profile.
+- **`point`.** Two or three numbers (``point`30 10` ``, ``point`30 10 5` ``) with an optional SRID prefix. A bare
+  point has no SRID. Which SRIDs are valid is a consumer's rule. The exact spelling of the SRID prefix is fixed in
+  the specification and its corpus cases, not here.
+- **Where the forms are defined.** In `gram-value`'s specification (`spec/`), tested by the conformance corpus.
+  tree-sitter-gram's well-known-tags document keeps its short list and is changed to link to the specification.
 
 ## 8. ADRs
 

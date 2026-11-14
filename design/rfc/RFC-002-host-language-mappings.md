@@ -203,8 +203,8 @@ in a JavaScript `Date`) reported?
 7.11. How are the mapping tables written down so the documentation and the conformance corpus are generated from
 one source (RFC-001 6.7)?
 
-7.12. If operations are pushed down into the core (RFC-001 7.16), is mapping the only point at which values cross
-the boundary, and does the loss record then describe the whole pipeline?
+7.12. Closed: operations are not pushed down into a core (RFC-001 7.16, decided: every package is native), so
+mapping is the only point at which a value changes representation, and a loss record describes one conversion.
 
 7.13. Can a consumer override a table entry (for example, mapping decimals to its own type)?
 
