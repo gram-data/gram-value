@@ -105,14 +105,12 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
+      # The registry is asked with curl, without the (placeholder or real) auth token that setup-node writes.
       - name: Already published?
         id: exists
         run: |
-          if npm view "@gram-data/value@$VERSION" version >/dev/null 2>&1; then
-            echo "published=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "published=false" >> "$GITHUB_OUTPUT"
-          fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" "https://registry.npmjs.org/@gram-data%2fvalue/$VERSION")
+          echo "published=$([ "$code" = 200 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - run: npm ci
         if: steps.exists.outputs.published != 'true'
       - name: Publish (trusted publishing; NPM_TOKEN only for the first release)
@@ -120,13 +118,15 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --provenance --access public
+      # npm says "your package is being processed and may take a few minutes": the first publish took about five.
       - name: Verify from npm
         run: |
-          for i in $(seq 1 12); do
-            npm view "@gram-data/value@$VERSION" version >/dev/null 2>&1 && exit 0
-            sleep 10
+          for i in $(seq 1 45); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "https://registry.npmjs.org/@gram-data%2fvalue/$VERSION")
+            [ "$code" = 200 ] && exit 0
+            sleep 20
           done
-          echo "@gram-data/value $VERSION is not visible on npm"; exit 1
+          echo "@gram-data/value $VERSION is not visible on npm after 15 minutes"; exit 1
       - name: GitHub release
         env:
           GH_TOKEN: ${{ github.token }}

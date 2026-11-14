@@ -38,6 +38,8 @@ Do these once, before the first release. The workflow cannot do them.
 
 ## When something fails
 
+- npm can take several minutes to show a new version (the first publish took about five), so the verification waits up
+  to 15 minutes. If it still times out, check the package page before re-running.
 - Re-run the failed job from the Actions tab. It skips publishing a version that is already on the registry and
   completes what is missing.
 - A published version is never replaced. If it is defective, yank it (crates.io, PyPI) or deprecate it (npm) and
