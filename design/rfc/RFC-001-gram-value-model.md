@@ -264,8 +264,19 @@ unmeasured.
 
 7.13. Does the model include null? TypeScript and Python add one, and gram has no null literal.
 
+Decided 2026-11-14: the model has no null. Gram has no null literal, so every value in the model can be written as gram
+text. A host's null is handled by the mapping tables, where writing it as gram is an unsupported entry reported to the
+consumer (RFC-002 5.6).
+
 7.14. What is a record (an element's property map) in this model, and do property keys and their name quoting
 belong to it or to a graph layer?
+
+Decided 2026-11-14: an element's property record is a `map` value, with unique string keys and no order (7.2); there is
+no separate record type. Property keys are strings in the model, and whether a key was written as a bare symbol, a
+backticked name or a double-quoted name is spelling (7.1). The model allows any value inside any container, so it
+matches how every host represents JSON-like data and survives a grammar that relaxes the nesting rules; the grammar's
+limits (an array holds scalars, a map entry holds a scalar or an array) are enforced by the parser, and writing a
+value the grammar cannot express (an array inside an array) is a reported error, like any unwritable value.
 
 7.15. What are equality, ordering and hashing for values (`1` and `1.0`, `NaN`, `5kg` and `5.0kg`)?
 
