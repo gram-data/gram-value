@@ -200,6 +200,10 @@ conversion, so one behavior is tested by the corpus.
 7.4. In TypeScript, how is an integer beyond 2^53 (an `integer` or a `big_integer`) represented: a number with a recorded loss, a `BigInt` always, or
 a number when the value is safe and a `BigInt` otherwise?
 
+Decided 2026-11-14: an integer within plus or minus 2^53 - 1 becomes a `number` and any other integer, whether `integer` or
+`big_integer`, becomes a `bigint`. Nothing is rounded, so the entry has no loss, and a consumer handles both types. This
+applies to the TypeScript package, which follows the Rust package.
+
 7.5. In each language, is a gram decimal a float or an exact decimal type where one exists (Python `Decimal`, no
 JavaScript equivalent)? This follows RFC-001 7.4.
 
