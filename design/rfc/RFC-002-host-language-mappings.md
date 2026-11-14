@@ -207,6 +207,12 @@ applies to the TypeScript package, which follows the Rust package.
 7.5. In each language, is a gram decimal a float or an exact decimal type where one exists (Python `Decimal`, no
 JavaScript equivalent)? This follows RFC-001 7.4.
 
+Decided 2026-11-14: a `decimal` becomes the language's 64-bit float (`f64`, `float`, `number`). A `big_decimal` becomes
+`decimal.Decimal` in Python, exactly. Rust and TypeScript have no standard exact decimal, so in Rust the `big_decimal` entry
+is unsupported as a native value and the package's own `BigDecimal` stays the value (the wrapper of 5.5), and in
+TypeScript it becomes a `number` with a `precision` loss. In TypeScript a whole decimal such as `1.0` also arrives as an
+integer-valued number, reported as a `kind` loss.
+
 7.6. Which native types hold a range and a measurement: small record types defined by the package in each
 language, or types from a library? Should a range use a language's own range type (Rust's `Range`, Python's
 `range`) where one exists, given that its endpoints and inclusivity differ from gram's?
