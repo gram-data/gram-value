@@ -25,8 +25,9 @@ tools stop rebuilding this model. The model describes all gram values; a consume
 rejects the rest itself, and the model does not name those subsets. The tree-sitter-gram grammar and test
 corpus remain the authority on what text is a gram value.
 
-The proposal fixes the scope and the direction; the representation choices, the mapping tables and the
-packaging are left to later decisions.
+The scope and direction are the proposal. Section 7 records the decisions on the model itself (the kinds, equality,
+text writing, the known tags and the implementation strategy); the mapping tables, the corpus and the packaging are
+the subject of RFC-002 and RFC-003.
 
 ## 2. Problem / Motivation
 
@@ -77,7 +78,7 @@ gram text agree on its values.
 same value and the same text is produced everywhere.
 
 3.3. Keep known-tag interpretation (dates, points, UUIDs and any later tag) as a layer separate from the value.
-A consumer can register interpretations for tags without changing the model, and a tag with no interpretation
+A consumer can add its own interpretations without changing the model, and a tag with no interpretation
 round-trips unchanged.
 
 3.4. Document, for each first-tier language (Rust, TypeScript, Python), how every value maps to a native value,
@@ -112,9 +113,9 @@ each language's own idioms.
 ### 5.1 One model of all values, recording what a value means
 
 The model has a representation for every value kind in the grammar, including the ones some consumers will
-reject (ranges, measurements, maps, octal literals). Candidate direction: a value records what it means (the
-number, the unit, the ordered entries), while how it was written (hexadecimal or decimal, which quote) and where
-it was written stay in the parser's syntax tree. That keeps the model small and lets text writing be canonical.
+reject (ranges, measurements, maps, octal literals). A value records what it means (the
+number, the unit, the entries), while how it was written (hexadecimal or decimal, which quote) and where
+it was written stay in the parser's syntax tree. That keeps the model small and lets text writing be canonical (decided, 7.1).
 
 ### 5.2 Classification, not subsets
 
@@ -124,14 +125,14 @@ consumer would never change the model.
 
 ### 5.3 Tagged strings stay a tag and a content string
 
-Candidate direction: a tagged string is `{tag, content}` in the model. A registry of known tags, kept as an
-optional layer, would interpret the ones it knows and validate their content forms. A consumer could add tags
-to the registry or decline to use it.
+A tagged string is `{tag, content}` in the model. A fixed set of known tags, kept as an optional layer of plain
+functions, interprets the tags it knows and validates their content forms. A consumer adds interpretations by
+writing its own function over a tagged string, or declines the layer (decided, 7.6 and 7.17).
 
 ### 5.4 Canonical text writing
 
 Each value has one canonical text: string quoting, decimal spelling and name quoting are fixed, so
-exports are byte-stable. Whether the writing rules belong in the model's package or a sibling is open.
+exports are byte-stable. The writing rules live in the model's package (decided, 7.7).
 
 ### 5.5 Host-language mappings
 
@@ -147,8 +148,7 @@ the results.
 
 ### 5.7 Implementation per language
 
-Whether each language is a native implementation or a binding to a shared core is decided per language, by an
-ADR. SPIKE-002 measured the candidates on simple operations (creating 1,000 values, adding them to a list,
+Each language is a native implementation or a binding to a shared core. SPIKE-002 measured the candidates on simple operations (creating 1,000 values, adding them to a list,
 mapping the list to new values, reading the result). In TypeScript, a Rust core behind WebAssembly was 11 to 25
 times slower per value than plain objects (12 times in the best case, a single call for the whole map), and also
 brings a `BigInt` for every 64-bit integer, handles that must be freed by hand, and asynchronous initialization in
@@ -158,7 +158,7 @@ package is native.
 
 ### 5.8 Values are data; results carry their diagnostics
 
-Candidate direction: `Value` is a plain sum type with no monadic interface, so any language can wrap it.
+Decided (4.6): `Value` is a plain sum type with no monadic interface, so any language can wrap it.
 Interpreting a tag, and mapping a value to a host value, return a result of one language-neutral shape: the value
 together with the diagnostics or losses found, accumulated across independent values instead of stopping at the
 first. Each language adds idiomatic helpers for composing results (`Result` and `?` in Rust, result objects in
@@ -182,8 +182,7 @@ second one would duplicate it.
 
 6.5. **One reference implementation, with the other languages as ports checked by tests.** This is how
 pattern-rs relates to pattern-hs. Rejected for now: it makes parity depend on one language's tests, and the
-corpus gives every language the same standing. Whether the Haskell implementation is a peer or a reference is
-an open question (7.10).
+corpus gives every language the same standing, and the Haskell implementation is a peer (7.10).
 
 6.6. **Fix pattern-core's `Value` in place and have the others depend on pattern-core.** Rejected: pattern-core
 also holds the pattern and subject machinery, so a consumer that only needs values (relate-gram, a schema tool)
@@ -191,10 +190,9 @@ inherits it and pattern-rs's release cadence, and the TypeScript and Python pack
 through the JSON boundary.
 
 6.7. **Define the model once in a schema and generate each language's types and conformance cases.** Not
-rejected here: it is the main candidate for keeping parity without a shared core, and question 7.11 counts a
-generator among the ways a language package can be built. SPIKE-002 makes it more pressing: with native
-TypeScript, the logic that must match across languages (text writing and the known-tag validators, about 800 lines
-in relate-gram) is ported, and a generator or shared test vectors are what keep the ports in step.
+rejected: with every package native (7.11), the logic that must match across languages (text writing and the
+known-tag validators, about 800 lines in relate-gram) is written once per language, and a generator is a candidate,
+beside the conformance corpus, for keeping the ports in step. It is left to a later ADR.
 
 ## 7. Open Questions
 
@@ -272,7 +270,7 @@ states the loss as a round-trip text) and RFC-003 (the parity matrix). What rema
 7.9. How does the value type evolve when several projects depend on it? (Deferred to an ADR.)
 
 Decided 2026-11-14: the set of kinds is closed, and adding a kind is a breaking change: a major release (a minor
-release before 1.0, under RFC-003's version policy), after which every consumer's exhaustive handling of the kinds fails
+release before 1.0, as RFC-003 proposes), after which every consumer's exhaustive handling of the kinds fails
 to compile or check until it decides what the new kind means to it. A new kind lands with its corpus cases first
 (RFC-003 5.8).
 
