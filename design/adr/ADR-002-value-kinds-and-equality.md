@@ -26,7 +26,7 @@ The grammar (tree-sitter-gram 0.7.0) is the authority on what text is a value. I
 
 ### 2.1 A value records meaning, not spelling
 
-A value records what it means. How it was written (decimal or hexadecimal, which quote, a bare word or a quoted string, entry order in a map, the separator `:` or `::`) and where it was written stay in the parser's syntax tree and never reach the model.
+A value records what it means. How it was written (decimal or hexadecimal, which quote, a bare word or a quoted string, entry order in a map, the separator `:` or `::`, which means nothing for a value) and where it was written stay in the parser's syntax tree and never reach the model.
 
 ### 2.2 The kinds
 
@@ -40,7 +40,7 @@ The model has exactly these kinds, listed in the order used by 2.6.
 | `big_decimal` | a decimal that a 64-bit float cannot hold exactly, as a sign, digits, a point and digits |
 | `boolean` | true or false |
 | `string` | text |
-| `tagged` | a tag (a symbol) and a content string |
+| `tagged` | a tag (a symbol other than `true` and `false`) and a content string |
 | `range` | an optional lower end and an optional upper end, each a numeric value or a measurement |
 | `measurement` | a magnitude (any numeric value: `integer`, `big_integer`, `decimal` or `big_decimal`) and a unit string |
 | `array` | an ordered sequence of values |
@@ -58,19 +58,19 @@ An element's property record is a `map`; there is no separate record kind.
 
 ### 2.3 A repeated key is an error
 
-A `map` has unique keys. A parser-facing constructor given a repeated key reports an error that names the key; it never keeps the first or the last silently. (`gram lint` in tree-sitter-gram already reports `duplicate-key` for the same input.)
+A `map` has unique keys. A constructor that builds a map from entries and is given a repeated key reports an error (code `duplicate-key`) that names the key; it never keeps the first or the last silently. (`gram lint` in tree-sitter-gram already reports `duplicate-key` for the same input.) Behavior on values gram cannot write (a repeated key, `NaN`, an infinity, an unwritable nesting, an invalid tag or unit) cannot appear in a corpus that must pass `gram lint --strict` (ADR-001), so each package tests it with unit tests derived from the tables in `spec/`, until a construction-case kind is decided.
 
 ### 2.4 The set of kinds is closed
 
-Adding a kind is a breaking change: a major release (a minor release before 1.0), after which every consumer's exhaustive handling of the kinds fails to compile or check until it decides what the new kind means. A new kind lands first as conformance cases (RFC-003 5.8).
+Adding a kind is a breaking change, released as such under the project's version policy (RFC-003 5.6), after which every consumer's exhaustive handling of the kinds fails to compile or check until it decides what the new kind means. A new kind lands first as conformance cases (RFC-003 5.8).
 
 ### 2.5 Equality and hashing
 
-Two values are equal when they have the same kind and the same canonical text (ADR-003). Therefore `1` differs from `1.0`, `5kg` from `5.0kg`, and `-0.0` from `0.0`, and two maps with the same entries are equal whatever order the entries were written in. Hashing agrees with equality. Other equivalence functions (numeric equivalence across kinds, for example) may be added later as separate named functions; none replaces equality or hashing.
+Two values are equal when they have the same kind and the same content, compared part by part: numbers by their exact digits, strings by code points, tags by tag and content, arrays element by element, maps by their entry sets. For every value gram can write this is the same as having equal canonical text (ADR-003), and the conformance corpus tests it that way. Therefore `1` differs from `1.0`, `5kg` from `5.0kg`, and `-0.0` from `0.0`, and two maps with the same entries are equal whatever order the entries were written in. Equality is defined for values gram cannot write too (an array inside an array). Hashing agrees with equality. Other equivalence functions (numeric equivalence across kinds, for example) may be added later as separate named functions; none replaces equality or hashing.
 
 ### 2.6 Total order
 
-A total order is defined as a convenience for sorting and for sorted containers. Values compare first by kind, in the order of the table in 2.2, and then within a kind: `integer`, `big_integer`, `decimal` and `big_decimal` numerically; `boolean` with false before true; `string` by its UTF-8 bytes; `tagged` by tag, then content; `range` by lower end, then upper end, an absent end before a present one; `measurement` by magnitude, then unit; `array` lexicographically; `map` by its entries sorted by key, compared as pairs. The order means nothing about the values themselves.
+A total order is defined as a convenience for sorting and for sorted containers. Values compare first by kind, in the order of the table in 2.2, and then within a kind: `integer`, `big_integer`, `decimal` and `big_decimal` numerically; `boolean` with false before true; `string` by its UTF-8 bytes; `tagged` by tag, then content; `range` by lower end, then upper end, an absent end before a present one; `measurement` by magnitude, then unit; `array` lexicographically; `map` by its entries sorted by key, compared as pairs. The order is consistent with equality: it reports equal only for equal values, so `-0.0` sorts before `0.0`, and a measurement's magnitudes compare by this same order. A range's absent end sorts before any present end, so an unbounded lower end comes first and an unbounded upper end also comes first among ranges with the same lower end. Because kinds compare first, every `big_integer` sorts after every `integer`, and numeric order across kinds is not offered here. The order means nothing about the values themselves.
 
 ## 3. Alternatives Considered
 
@@ -96,10 +96,11 @@ A total order is defined as a convenience for sorting and for sorted containers.
 
 - A consumer's code over the model handles eleven kinds, two of which (`big_integer`, `big_decimal`) are rare. A consumer that only supports some kinds rejects the rest with its own errors; the model names no subsets.
 - Every package decides one form per value, so conversion code compares by kind and never inspects both `integer` and `big_integer` for one number.
-- A decimal's kind depends on a round-trip check, which every language package implements; the conformance corpus needs cases at the boundary (a decimal such as `0.1`, one with more digits than a float holds, a very large positive integer).
+- A decimal's kind depends on a round-trip check (a literal beyond the float range, such as one with 400 digits, is a `big_decimal`), which every language package implements; the conformance corpus needs cases at the boundary (a decimal such as `0.1`, one with more digits than a float holds, a very large positive integer).
 - Spelling-sensitive tools (formatters) cannot use the model alone; they read the syntax tree.
-- A value's order and equality are defined through canonical text, so ADR-003 is a dependency of this decision.
-- Follow-up work: write these rules in `spec/`; add `ValueCase`s for every kind and for each boundary named above (ADR-001); name the kinds in the conformance vocabulary (done in ADR-001 2.5).
+- Equality is defined on content and agrees with canonical text for every writable value, so the corpus can test it through ADR-003's text.
+- Each package exposes a value's kind, whether it is a scalar, and whether an array holds values of one kind, so a consumer can implement its own subset (RFC-001 5.2); the exact functions are in `spec/`.
+- Follow-up work: write these rules in `spec/`, including the lowering rules that turn grammar literals into values (escape decoding, the fenced string form, the fenced tagged form); add `ValueCase`s for every kind and for each boundary named above (ADR-001); name the kinds in the conformance vocabulary (done in ADR-001 2.5).
 
 ## 5. Related
 

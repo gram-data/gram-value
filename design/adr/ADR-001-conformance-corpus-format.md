@@ -2,7 +2,7 @@
 id: ADR-001
 title: The Conformance Corpus Is Gram Text
 status: proposed
-rfcs: [RFC-003, RFC-002]
+rfcs: [RFC-003, RFC-002, RFC-001]
 created: 2026-11-14
 ---
 
@@ -40,7 +40,7 @@ A runner parses the corpus files with that language's tree-sitter-gram binding a
 |---|---|---|
 | `ValueCase` | `kind`: a symbol naming the value's kind | the package classifies `value` as that kind |
 | `TextCase` | `canonical`: a string | writing `value` as gram text gives exactly `canonical` |
-| `TagCase` | `outcome`: `accepted` or `rejected`; `diagnostic`: a symbol, when rejected; `interpreted`: a string, when accepted | interpreting the tag of `value` (a known tag, such as `date` or `point`, is one whose content `gram-value` interprets) accepts or rejects it, with that diagnostic, and an accepted value's canonical text is `interpreted` |
+| `TagCase` | `outcome`: `accepted` or `rejected`; `diagnostic`: a symbol, when rejected; `interpreted`: a string, when accepted | interpreting the tag of `value` (a known tag, such as `date` or `point`, is one whose content `gram-value` interprets) accepts or rejects it, with that diagnostic, and an accepted value's normal content string (ADR-004 2.5) is `interpreted` |
 | `MappingCase` | one property per language, named by the lower-case language (`rust`, `typescript`, `python`, later `go`, `swift`, `haskell`), each a map with `class`, `loss`, `native` and `roundtrip` | converting `value` to that language's native value gives the entry class, loss kinds and native type, and writing the native value back as gram text gives `roundtrip` |
 
 In a mapping entry, `class` is `exact`, `lossy` or `unsupported` (RFC-002 5.2); `loss` is an array of symbols naming loss kinds, present when the class is `lossy`; `native` is the name of the native type in that language's mapping table, or `none` when the conversion fails; `roundtrip` is the gram text that the native value writes back as, so a loss shows as a different text (the TypeScript number from `9007199254740993` writes back as `9007199254740992`), and it is absent when no native value exists.
@@ -49,7 +49,7 @@ A runner runs a `MappingCase` only for a language that has an entry in it. A cas
 
 ### 2.5 A vocabulary file names what a case may say
 
-`conformance/vocabulary.gram` lists the allowed kind names (the eleven kinds of RFC-001: `integer`, `big_integer`, `decimal`, `big_decimal`, `boolean`, `string`, `tagged`, `range`, `measurement`, `array`, `map`), loss kinds, diagnostic names and, per language, native type names. A corpus lint, run by every package and by the corpus's own check, fails on a name that is not in the vocabulary, so a misspelling is an error, not a case that silently never matches. The lint also requires every distinct value form that appears in any case to appear in a `ValueCase`, which is what pins each language's lowering: a lowering that reads a value differently fails that `ValueCase`.
+`conformance/vocabulary.gram` lists the allowed kind names (the eleven kinds of ADR-002 2.2: `integer`, `big_integer`, `decimal`, `big_decimal`, `boolean`, `string`, `tagged`, `range`, `measurement`, `array`, `map`), the ten tag names of ADR-004, loss kinds (none yet: RFC-002 7.1 is open), diagnostic names (`invalid-form` and `out-of-range` of ADR-004 to start) and, per language, native type names. A corpus lint, run by every package and by the corpus's own check, fails on a name that is not in the vocabulary, so a misspelling is an error, not a case that silently never matches. The lint also requires every distinct value form that appears in any case to appear in a `ValueCase`, which is what pins each language's lowering: a lowering that reads a value differently fails that `ValueCase`.
 
 ### 2.6 Skips live in the package
 
@@ -57,11 +57,11 @@ Each package keeps a file `skips.gram` next to its runner, with one node per ski
 
 ### 2.7 Runners report in gram
 
-Candidate shape: a runner writes `conformance-results.gram`, one node per case, labelled `Result`, with the case id and a `status` of `passed`, `failed` or `skipped`. The parity matrix is generated from the result files of all packages, so the generator is language-neutral. The file's name and shape may change when the matrix and its generator are designed, and where the matrix is published is not decided here (RFC-003 7.10 and 7.15).
+A runner writes `conformance-results.gram`, one node per case, labelled `Result`, with the case id and a `status` of `passed`, `failed` or `skipped`. The parity matrix is generated from the result files of all packages, so the generator is language-neutral. The shape is a starting point that may change when the matrix and its generator are designed (RFC-003 7.15), and where the matrix is published is not decided here (RFC-003 7.10).
 
 ### 2.8 Not decided here
 
-The case kind for the native-to-gram direction (RFC-002 5.6 and 7.9), cases that compare two values for equality or order (RFC-001 7.15), and the path format that would say where in an array or map a loss occurred (RFC-002 7.2). The kinds in 2.4 do not prevent adding them.
+Behavior on values gram cannot write (repeated keys, `NaN`, unwritable nesting, an invalid tag or unit at construction) cannot appear in a corpus that must pass `gram lint --strict`, so each package tests it with unit tests derived from the tables in `spec/` until a construction-case kind is decided. Also not decided: the case kind for the native-to-gram direction (RFC-002 5.6 and 7.9), cases that compare two values for equality or order (RFC-001 7.15), and the path format that would say where in an array or map a loss occurred (RFC-002 7.2). The kinds in 2.4 do not prevent adding them.
 
 ## 3. Alternatives Considered
 
