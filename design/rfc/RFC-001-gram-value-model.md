@@ -210,6 +210,12 @@ tree. SPIKE-001 found that spelling changes meaning only where a number's kind c
 7.3. What does an octal literal mean (`010` is 8 or 10), and what are the width and range of an integer, given
 that gram text has no limit?
 
+Decided 2026-11-14: an octal literal is base 8 (`010` is 8, `042` is 34); `019` is not an octal and the grammar
+rejects it as a syntax error. An integer is a signed 64-bit value. An integer outside that range is a separate kind,
+`big_integer`, that holds the exact digits (a sign and decimal digits without leading zeros); an integer that fits in
+64 bits is always `integer`, never `big_integer`, so every value has one form. Hexadecimal and octal literals take no
+sign in the grammar, so only plain integers can be negative.
+
 7.4. Is a decimal a 64-bit float or an exact decimal? How is a measurement represented (a number and a unit,
 with the spelling kept?), and how is a range represented, including half-open ranges and measurements as ends?
 
