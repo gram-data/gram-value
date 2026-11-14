@@ -228,8 +228,7 @@ secrets), and what is the recovery when one registry fails after another succeed
 7.11. Do consumers (relate-gram, pattern-rs) run a subset of the corpus against their own use of the library, or
 only their own tests?
 
-7.12. If operations are pushed down into the core (RFC-001 7.16), how does the corpus describe a pipeline so every
-language can run it?
+7.12. Closed: there are no pushed-down pipelines (RFC-001 7.16, decided), so the corpus has no pipeline cases.
 
 7.13. What is the corpus's coverage target: every grammar value form, every known tag, every mapping entry?
 

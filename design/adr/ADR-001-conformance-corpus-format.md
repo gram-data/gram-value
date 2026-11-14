@@ -61,7 +61,7 @@ Candidate shape: a runner writes `conformance-results.gram`, one node per case, 
 
 ### 2.8 Not decided here
 
-The case kind for the native-to-gram direction (RFC-002 5.6 and 7.9), cases that compare two values for equality or order (RFC-001 7.15), cases that describe a pipeline of operations (RFC-001 7.16), and the path format that would say where in an array or map a loss occurred (RFC-002 7.2). The kinds in 2.4 do not prevent adding them.
+The case kind for the native-to-gram direction (RFC-002 5.6 and 7.9), cases that compare two values for equality or order (RFC-001 7.15), and the path format that would say where in an array or map a loss occurred (RFC-002 7.2). The kinds in 2.4 do not prevent adding them.
 
 ## 3. Alternatives Considered
 

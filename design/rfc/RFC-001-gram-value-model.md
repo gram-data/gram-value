@@ -164,7 +164,7 @@ together with the diagnostics or losses found, accumulated across independent va
 first. Each language adds idiomatic helpers for composing results (`Result` and `?` in Rust, result objects in
 TypeScript and Python, monadic wrappers in Haskell). A small structural traversal (a fold or map over a value's
 parts) is offered only if the conformance corpus can test it identically in every language. Whether the Rust
-implementation should go further is question 7.16.
+implementation should go further was question 7.16, closed: operations stay plain functions.
 
 ## 6. Alternatives Considered
 
@@ -332,10 +332,12 @@ order is a convenience and means nothing about the values.
 7.16. Should the Rust implementation explore a functional-programming system for values and operations that
 minimizes the data crossing a language boundary while allowing operations to be pushed down into the core? In
 such a system a host language would send a description of a pipeline of operations and receive one result,
-instead of crossing the boundary for each value. SPIKE-002 is the evidence: a map run inside the core in one
-call cost half as much as the same map calling back into the host for each element. What would the operation set
-be, how would the same pipeline be expressed in each language, and how does it relate to the host-language
-mappings (5.5) and to the per-language choice between native and bound implementations (7.11)?
+instead of crossing the boundary for each value. SPIKE-002 measured the benefit: a map run inside the core in one
+call cost half as much as the same map calling back into the host for each element.
+
+Decided 2026-11-14: closed for `gram-value`. Every language package is native (7.11), so no package has a boundary
+to cross, and operations on values stay plain functions. A pipeline system that pushes operations into a consumer
+such as Relate would belong to that consumer or a separate project, and could start from SPIKE-002.
 
 7.17. What are the exact forms of the known tags, defined in tree-sitter-gram's well-known tags document: `time`
 (offset and seconds optional?), `localtime`, `localdatetime`, `duration`, `point` (the corpus writes ``point`30 10` ``;
