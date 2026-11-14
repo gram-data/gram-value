@@ -185,6 +185,11 @@ unsupported and the conversion fails with a diagnostic. Spelling is not a loss k
 7.2. What are the fields of a loss record, and how is the path to a part of a value written the same way in every
 language?
 
+Decided 2026-11-14: a loss is a diagnostic with the three fields of ADR-005, `code` (the loss kind of 7.1), `message`
+and `path`. The path is a list of map keys and array indexes, and its text form is a JSON Pointer (RFC 6901): `/items/0/name`,
+with `~0` for `~` and `~1` for `/` inside a key, and the empty string for the whole value. The list is the contract; the
+text form is what messages and the conformance corpus use.
+
 7.3. Where is the loss policy chosen (per call, per consumer, per language), and what is the default?
 
 7.4. In TypeScript, how is an integer beyond 2^53 (an `integer` or a `big_integer`) represented: a number with a recorded loss, a `BigInt` always, or
