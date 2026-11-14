@@ -146,10 +146,14 @@ the results.
 
 ### 5.7 Implementation per language
 
-Whether each language is a native implementation or a binding to a shared core is not decided here. Crossing a
-language boundary is costly for users, and WebAssembly in particular is expected to be a poor experience. A
-spike measures candidates on simple operations (creating 1,000 values, adding them to a list, mapping the list
-to new values), and an ADR decides.
+Whether each language is a native implementation or a binding to a shared core is decided per language, by an
+ADR. SPIKE-002 measured the candidates on simple operations (creating 1,000 values, adding them to a list,
+mapping the list to new values, reading the result). In TypeScript, a Rust core behind WebAssembly was 11 to 25
+times slower per value than plain objects (12 times in the best case, a single call for the whole map), and also
+brings a `BigInt` for every 64-bit integer, handles that must be freed by hand, and asynchronous initialization in
+a browser. In Python, a Rust core behind PyO3 was as fast as native dataclasses or faster (and 4.5 times faster
+at writing text), so the Python choice rests on distribution, a compiled wheel per platform. Candidate direction:
+Rust is the core natively, TypeScript is native, and Python stays open.
 
 ### 5.8 Values are data; results carry their diagnostics
 
@@ -187,7 +191,9 @@ through the JSON boundary.
 
 6.7. **Define the model once in a schema and generate each language's types and conformance cases.** Not
 rejected here: it is the main candidate for keeping parity without a shared core, and question 7.11 counts a
-generator among the ways a language package can be built.
+generator among the ways a language package can be built. SPIKE-002 makes it more pressing: with native
+TypeScript, the logic that must match across languages (text writing and the known-tag validators, about 800 lines
+in relate-gram) is ported, and a generator or shared test vectors are what keep the ports in step.
 
 ## 7. Open Questions
 
@@ -215,7 +221,9 @@ with the spelling kept?), and how is a range represented, including half-open ra
 7.10. Is the Haskell implementation (pattern-hs) a peer of the other languages or their reference?
 
 7.11. Per language, is the package native, a binding to a shared core, or generated from a schema, and what does
-a user pay to cross the boundary?
+a user pay to cross the boundary? SPIKE-002 answers it for TypeScript (native) and leaves Python open between a
+native model and a PyO3 core, to be decided on the cost of shipping compiled wheels; Go, Swift and Haskell are
+unmeasured.
 
 7.12. The grammar allows `::` before a label or key. Does that mean anything for a value?
 
