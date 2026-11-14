@@ -103,6 +103,9 @@ second format would duplicate it.
 4.5. Defining gram's syntax. The grammar and its corpus define what text is a value, and this project follows
 them.
 
+4.6. A monad, functor or other abstraction as part of the value type's contract. Wrappers of that kind belong to
+each language's own idioms.
+
 ## 5. Proposed Approach (high-level)
 
 ### 5.1 One model of all values, recording what a value means
@@ -147,6 +150,16 @@ Whether each language is a native implementation or a binding to a shared core i
 language boundary is costly for users, and WebAssembly in particular is expected to be a poor experience. A
 spike measures candidates on simple operations (creating 1,000 values, adding them to a list, mapping the list
 to new values), and an ADR decides.
+
+### 5.8 Values are data; results carry their diagnostics
+
+Candidate direction: `Value` is a plain sum type with no monadic interface, so any language can wrap it.
+Interpreting a tag, and mapping a value to a host value, return a result of one language-neutral shape: the value
+together with the diagnostics or losses found, accumulated across independent values instead of stopping at the
+first. Each language adds idiomatic helpers for composing results (`Result` and `?` in Rust, result objects in
+TypeScript and Python, monadic wrappers in Haskell). A small structural traversal (a fold or map over a value's
+parts) is offered only if the conformance corpus can test it identically in every language. Whether the Rust
+implementation should go further is question 7.16.
 
 ## 6. Alternatives Considered
 
@@ -213,6 +226,14 @@ belong to it or to a graph layer?
 
 7.15. What are equality, ordering and hashing for values (`1` and `1.0`, `NaN`, a symbol and a string with the
 same text)?
+
+7.16. Should the Rust implementation explore a functional-programming system for values and operations that
+minimizes the data crossing a language boundary while allowing operations to be pushed down into the core? In
+such a system a host language would send a description of a pipeline of operations and receive one result,
+instead of crossing the boundary for each value. SPIKE-002 is the evidence: a map run inside the core in one
+call cost half as much as the same map calling back into the host for each element. What would the operation set
+be, how would the same pipeline be expressed in each language, and how does it relate to the host-language
+mappings (5.5) and to the per-language choice between native and bound implementations (7.11)?
 
 ## 8. ADRs
 

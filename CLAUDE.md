@@ -23,6 +23,12 @@ on it instead of keeping their own copies. It began as a note in relate-gram
 - **Standard host-language mappings, even lossy.** Each language documents how every value maps to a native
   value; where information is lost, the table says what, and a consumer can detect it.
 - **Languages.** First tier: Rust, TypeScript, Python. Next tier: Go, Swift, Haskell.
+- **Values are plain sum types.** `Value` has no monad or functor interface, so any language can wrap it.
+  Interpretation and mapping return a language-neutral result (the value plus the diagnostics or losses found,
+  accumulated across independent values), with idiomatic helpers per language; a small structural traversal is
+  offered only if the conformance corpus can test it identically everywhere. Whether Rust should explore a
+  functional-programming system that minimizes data crossing a language boundary and pushes operations down into
+  the core is an open question (RFC-001 7.16).
 - **Implementation strategy is not decided.** One Rust core with bindings versus native implementations per
   language is a question for a spike and an ADR. Crossing a language boundary is expensive for users, and
   WebAssembly in particular is assumed to be a poor experience; Python may be acceptable. The spike measures
