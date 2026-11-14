@@ -153,8 +153,8 @@ mapping the list to new values, reading the result). In TypeScript, a Rust core 
 times slower per value than plain objects (12 times in the best case, a single call for the whole map), and also
 brings a `BigInt` for every 64-bit integer, handles that must be freed by hand, and asynchronous initialization in
 a browser. In Python, a Rust core behind PyO3 was as fast as native dataclasses or faster (and 4.5 times faster
-at writing text), so the Python choice rests on distribution, a compiled wheel per platform. Candidate direction:
-Rust is the core natively, TypeScript is native, and Python stays open.
+at writing text), so the Python choice rests on distribution, a compiled wheel per platform. Decided (7.11): every language
+package is native.
 
 ### 5.8 Values are data; results carry their diagnostics
 
@@ -288,6 +288,12 @@ reference for pattern-rs's pattern operations, which is a different layer.
 a user pay to cross the boundary? SPIKE-002 answers it for TypeScript (native) and leaves Python open between a
 native model and a PyO3 core, to be decided on the cost of shipping compiled wheels; Go, Swift and Haskell are
 unmeasured.
+
+Decided 2026-11-14: every language package is native: Rust, TypeScript and Python first, and Go, Swift and Haskell when
+each joins, with no shared core and no compiled extension to ship. A TypeScript user avoids WebAssembly (SPIKE-002), a
+Python user gets a pure wheel, and parity rests on the conformance corpus and a possible schema generator (6.7); the
+canonical writer and the known-tag validators are written once per language. A PyO3 core for Python remains available
+later as an optimization.
 
 7.12. The grammar allows `::` before a label or key. Does that mean anything for a value?
 
