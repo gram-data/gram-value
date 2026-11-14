@@ -1,7 +1,7 @@
 ---
 id: RFC-002
 title: Host-Language Mappings and Loss Reporting
-status: draft
+status: review
 created: 2026-11-14
 adrs: [ADR-001]
 ---
@@ -272,6 +272,16 @@ tree-sitter-gram 0.7.0)?
 Answered 2026-11-14 by ADR-002 and RFC-003 5.8: a new value form is a new kind, which is a breaking change (ADR-002 2.4);
 its `MappingCase`s are added to the corpus first, then each package adds its entry, and a grammar release is reviewed
 against the corpus before the pinned version changes.
+
+7.15. In a statically typed language such as Rust, where the package's `Value` is already the dynamic form, what does
+a mapping look like?
+
+Decided 2026-11-14 (found by the review of this RFC): the standard conversion traits. `From<i64>`, `From<&str>`,
+`From<Vec<T>>` and similar build a `Value`, and `TryFrom<&Value>` extracts `i64`, `f64`, `bool`, `String`, `Vec<T>`
+and `BTreeMap<String, T>`. A mismatch fails with a diagnostic (`type-mismatch`, or `out-of-range` for a narrower
+integer type such as `i32`). Every Rust entry is exact or unsupported, so Rust never reports a loss, and each table
+entry is a trait implementation the corpus can test. serde support may be added later as an optional feature; it is
+not the mapping (6.5).
 
 ## 8. ADRs
 
