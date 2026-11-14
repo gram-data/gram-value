@@ -23,8 +23,8 @@ conversion reports the loss it incurred as data the consumer can inspect. A cons
 loss: fail, accept and record, or ignore. The same mapping tables are checked against one language-neutral
 conformance corpus, so that two languages agree about what is lost.
 
-The scope and direction are the proposal; the loss kinds, the result shape and each language's table are left
-to later decisions.
+The scope and direction are the proposal. Section 7 records the decisions on loss kinds, the result shape, the native
+type of each value and the policy for losses; each language's table is written as conformance cases (ADR-001).
 
 ## 2. Problem / Motivation
 
@@ -77,15 +77,15 @@ instead of stopping at the first.
 3.4. Let a consumer choose what a loss means: fail the conversion, accept and record it, or ignore it, without
 changing the table.
 
-3.5. Specify what happens when a native value with no gram counterpart is written as gram (`null`, `NaN`, an
-integer beyond 64 bits, a map with a non-string key).
+3.5. Specify what happens when a native value with no gram counterpart is written as gram (`null`, `NaN`, a map
+with a non-string key).
 
 3.6. Test every mapping against the conformance corpus, a set of language-neutral cases that every language
 package runs, holding the expected native value and entry class per language.
 
 ## 4. Non-Goals
 
-4.1. Choosing how a value is represented in memory in the core. That is RFC-001's question.
+4.1. Choosing the value model itself (the kinds and their meaning). That is RFC-001's subject.
 
 4.2. Mapping graph or pattern structures (nodes, relationships, paths). Only values are mapped.
 
@@ -112,7 +112,7 @@ native language has no counterpart and the entry says whether the conversion fai
 
 ### 5.3 What the tables are expected to record
 
-Candidate entries, from SPIKE-001, that the first tables must settle: a 64-bit or larger integer in TypeScript; the
+The tables record, among others, the entries that SPIKE-001 showed to differ between languages and that section 7 now settles: a 64-bit or larger integer in TypeScript; the
 integer-versus-decimal distinction in TypeScript; a range, a measurement, a big integer, a big decimal and a tagged string in each
 language; the native map type in each language (the model's maps are unordered with unique keys, RFC-001 7.2); the temporal, point and UUID types that the known
 tags interpret.
