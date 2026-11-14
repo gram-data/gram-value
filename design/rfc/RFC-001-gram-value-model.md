@@ -200,6 +200,11 @@ in relate-gram) is ported, and a generator or shared test vectors are what keep 
 7.1. Does a value record only what it means, or also how it was written (hexadecimal versus decimal, quoting
 style)?
 
+Decided 2026-11-14: a value records only what it means, including its numeric kind (integer, decimal,
+measurement). How it was written (hexadecimal or decimal, which quote) and where stay in the parser's syntax
+tree. SPIKE-001 found that spelling changes meaning only where a number's kind changes (`5.0kg` and `5kg`, `1.0` and
+`1`, octal), and formatters and linters work on the syntax tree.
+
 7.2. How is a map stored: ordered, and do repeated keys survive, fail, or collapse?
 
 7.3. What does an octal literal mean (`010` is 8 or 10), and what are the width and range of an integer, given
