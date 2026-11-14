@@ -65,3 +65,4 @@ Use `/adr-review` before moving a draft to `accepted`.
 | [ADR-004](ADR-004-known-tags.md) | Ten Known Tags as Plain Interpretation Functions | accepted | RFC-001 |
 | [ADR-005](ADR-005-native-packages-and-results.md) | Native Packages, a Plain Sum Type and a Common Result Shape | accepted | RFC-001, RFC-003 |
 | [ADR-006](ADR-006-host-language-mappings.md) | Host-Language Mappings, Loss Reporting and the Rust Conversions | accepted | RFC-002 |
+| [ADR-007](ADR-007-release-process-and-versions.md) | Releasing the Packages: Versions, Names, Trusted Publishing and an Approval Gate | accepted | RFC-003 |

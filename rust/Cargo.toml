@@ -1,6 +1,6 @@
 [package]
 name = "gram-value"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
 description = "The data values of the gram notation: kinds, equality, canonical text and known-tag interpretation"
@@ -8,6 +8,8 @@ license = "MIT"
 repository = "https://github.com/gram-data/gram-value"
 keywords = ["gram", "graph", "values"]
 categories = ["data-structures", "parsing"]
+readme = "README.md"
+exclude = ["tests/", "skips.gram", "target/"]
 
 [dependencies]
 

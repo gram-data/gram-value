@@ -3,7 +3,7 @@ id: RFC-003
 title: Parity, Conformance and Packaging Across Languages
 status: review
 created: 2026-11-14
-adrs: [ADR-001, ADR-005]
+adrs: [ADR-001, ADR-005, ADR-007]
 ---
 
 # RFC-003: Parity, Conformance and Packaging Across Languages
@@ -218,11 +218,17 @@ in its own repository?
 7.6. What is the version policy: one number for everything or one per package, how does a package-only fix ship, and
 what may a user rely on before 1.0?
 
+Decided 2026-11-14 (ADR-007 2.1): the corpus and every package share a major.minor; a fix confined to one package is a patch of that package only. Before 1.0 a minor may change behavior.
+
 7.7. What are the package names on each registry (crates.io `gram-value`; npm `gram-value` or `@gram-data/value`;
-PyPI `gram-value`; the Go module path; the Swift package; Hackage), and who owns them? (Deferred to an ADR.)
+PyPI `gram-value`; the Go module path; the Swift package; Hackage), and who owns them? 
+
+Decided 2026-11-14 (ADR-007 2.2): crates.io `gram-value`, npm `@gram-data/value`, PyPI `gram-value`; Go, Swift and Hackage names are decided when those languages join.
 
 7.8. How do release workflows authenticate to the registries (trusted publishing, tokens held as repository
-secrets), and what is the recovery when one registry fails after another succeeds? (Deferred to an ADR.)
+secrets), and what is the recovery when one registry fails after another succeeds?
+
+Decided 2026-11-14 (ADR-007 2.4 to 2.6): trusted publishing (a token only for the first release of crates.io and npm); a tag starts the release, a protected `release` environment approves it; a re-run completes a partial release and a defective version is yanked and fixed by a new patch.
 
 7.9. What does CI cost with several toolchains, and which languages run on every change and which on a schedule? (Deferred to an ADR.)
 
@@ -246,3 +252,4 @@ Decided 2026-11-14 in practice (ADR-001 2.7): the matrix comes from each package
 
 - ADR-001: The Conformance Corpus Is Gram Text (resolves questions 7.1, 7.2 and 7.3)
 - ADR-005: Native Packages, a Plain Sum Type and a Common Result Shape (parity rests on the corpus, ADR-005 2.3)
+- ADR-007: Releasing the Packages: Versions, Names, Trusted Publishing and an Approval Gate (resolves questions 7.6, 7.7 and 7.8)

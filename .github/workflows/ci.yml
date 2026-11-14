@@ -101,6 +101,8 @@ jobs:
           path: results
       - run: gram lint --strict results/
       - run: python3 scripts/test_gen_parity_matrix.py
+      - run: python3 scripts/test_check_release.py
+      - run: python3 scripts/check-release.py
       - name: Parity matrix
         run: |
           python3 scripts/gen-parity-matrix.py --out parity.md \

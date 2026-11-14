@@ -18,7 +18,8 @@ the [conformance cases](conformance/README.md) (154). The Rust mapping table is 
 [`docs/mappings/rust.md`](docs/mappings/rust.md). The TypeScript package in [`typescript/`](typescript/) does the same for JavaScript
 ([`docs/mappings/typescript.md`](docs/mappings/typescript.md)). The Python package in [`python/`](python/) completes the first tier
 ([`docs/mappings/python.md`](docs/mappings/python.md)). CI runs all three against the same cases and publishes the
-parity matrix (`scripts/gen-parity-matrix.py`) in the job summary. The origin of the project is the note
+parity matrix (`scripts/gen-parity-matrix.py`) in the job summary. Packages are published to crates.io (`gram-value`),
+npm (`@gram-data/value`) and PyPI (`gram-value`) by tag; see [RELEASING.md](RELEASING.md). Nothing is published yet. The origin of the project is the note
 [gram-value: a shared home for gram's data values](https://github.com/relatedb/relate-gram/blob/main/design/notes/2026-11-14-gram-value.md).
 
 ## What it is, and is not

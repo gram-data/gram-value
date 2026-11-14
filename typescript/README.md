@@ -6,7 +6,7 @@ and the mapping to JavaScript values. The rules are in [`spec/`](../spec/README.
 [`design/`](../design/adr/README.md); the mapping table is [`docs/mappings/typescript.md`](../docs/mappings/typescript.md).
 
 ```ts
-import { integer, measurement, toText, toNative, unwrap } from "gram-value";
+import { integer, measurement, toText, toNative, unwrap } from "@gram-data/value";
 
 const m = unwrap(measurement(integer(5), "kg"));
 unwrap(toText(m)); // "5kg"
