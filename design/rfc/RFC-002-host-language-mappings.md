@@ -175,6 +175,13 @@ it.
 
 7.1. What are the loss kinds (precision, kind, order, spelling, and others), and is the set closed?
 
+Decided 2026-11-14: the loss kinds are `precision` (digits are lost, as when an integer past 2^53 or a `big_decimal`
+becomes a 64-bit float), `kind` (the value's kind changes, as when `1.0` arrives as the integer `1`) and `order` (key
+order is not kept, as when a JavaScript object moves integer-like keys first). The set is closed: a further loss kind
+needs an ADR, so a consumer can match every kind. A value that a host cannot hold at all is not a loss; its entry is
+unsupported and the conversion fails with a diagnostic. Spelling is not a loss kind, because the model keeps none
+(RFC-001 7.1). The kind `structure` is added only if a decision on 7.6 maps ranges or measurements to generic forms.
+
 7.2. What are the fields of a loss record, and how is the path to a part of a value written the same way in every
 language?
 
