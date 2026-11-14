@@ -208,6 +208,12 @@ tree. SPIKE-001 found that spelling changes meaning only where a number's kind c
 
 7.2. How is a map stored: ordered, and do repeated keys survive, fail, or collapse?
 
+Decided 2026-11-14: a map is an unordered set of entries with unique keys, equal to any other map with the same
+entries, and its canonical text writes the keys in byte order of their UTF-8 text. A repeated key is an error, which
+the lowering reports with its position (the grammar's own `gram lint` already reports `duplicate-key` for maps and
+for records); it is never kept silently as last-wins. The order an author wrote entries in is spelling (7.1) and
+stays in the syntax tree.
+
 7.3. What does an octal literal mean (`010` is 8 or 10), and what are the width and range of an integer, given
 that gram text has no limit?
 
