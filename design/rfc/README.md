@@ -63,3 +63,4 @@ Use `/rfc-review` before moving a draft to `review`/`accepted`.
 
 | RFC | Title | Status | ADRs |
 |---|---|---|---|
+| [RFC-001](RFC-001-gram-value-model.md) | A Shared Model of Gram's Data Values | draft | |
