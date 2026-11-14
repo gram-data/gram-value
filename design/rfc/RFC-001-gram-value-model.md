@@ -12,7 +12,8 @@ adrs: []
 
 Gram is a plain-text notation for graphs and patterns. Every element in a gram file can carry a record of
 properties, and a property value can be any of a small family of kinds: integers (written in decimal,
-hexadecimal or octal), decimals, booleans, symbols, strings in four quoting styles, ranges such as `1..5`,
+hexadecimal or octal), decimals, booleans, strings (in four quoting styles, or as a bare word called a symbol),
+ranges such as `1..5`,
 measurements such as `5kg`, arrays, maps, and tagged strings such as ``date`2024-01-15` `` that name a type for
 a piece of text. A program that reads gram has to decide what each of these is in memory, how to write it back
 as gram text, and how it corresponds to the host language's own values.
@@ -230,6 +231,14 @@ unbounded. The model does not check that the two ends are of one kind; a consume
 
 7.5. Are the four quoting styles of a string one kind, and is a symbol a string or a kind of its own?
 
+Decided 2026-11-14: the four quoting styles are one `string` kind (they are spelling, by 7.1), and a symbol in a value
+position is a string too: `gram-value` sees symbols only as values, where they are always strings, so there is no
+`symbol` kind. Identifiers, property names and tags are symbols in the grammar but are not values; the one place the
+rule reaches a value is a tagged string's tag, whose text must be a symbol (the grammar does not allow a backticked
+tag). The canonical text of a string is a bare word when its text matches the grammar's symbol rule and is not `true`
+or `false`, and a double-quoted string otherwise, so `active` stays `active` and `Ada Lovelace` is quoted; reading it
+back gives the same string.
+
 7.6. How does a consumer extend the known-tag registry, and how does it state that it supports only some tags?
 
 7.7. Do the text-writing rules live in the model's package or a sibling? (Deferred to an ADR.)
@@ -252,8 +261,8 @@ unmeasured.
 7.14. What is a record (an element's property map) in this model, and do property keys and their name quoting
 belong to it or to a graph layer?
 
-7.15. What are equality, ordering and hashing for values (`1` and `1.0`, `NaN`, a symbol and a string with the
-same text)?
+7.15. What are equality, ordering and hashing for values (`1` and `1.0`, `NaN`, two strings with the same
+text written in different quoting styles)?
 
 7.16. Should the Rust implementation explore a functional-programming system for values and operations that
 minimizes the data crossing a language boundary while allowing operations to be pushed down into the core? In
