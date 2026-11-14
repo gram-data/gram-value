@@ -217,6 +217,12 @@ integer-valued number, reported as a `kind` loss.
 language, or types from a library? Should a range use a language's own range type (Rust's `Range`, Python's
 `range`) where one exists, given that its endpoints and inclusivity differ from gram's?
 
+Decided 2026-11-14: each package defines its own small types: a `Range` (optional lower end, optional upper end,
+inclusive) and a `Measurement` (magnitude and unit), whose ends and magnitude are that language's native numbers (a
+range end may also be a measurement). They hold the value exactly, so the entries are exact and need no loss kind.
+A language's own range type (Rust's `RangeInclusive`, Python's `range`) is never used, since its ends and inclusivity
+differ from gram's; a consumer who wants one converts it. In Rust these types are the model's own.
+
 7.7. Closed: the model has no symbol kind (RFC-001 7.5, decided). A symbol in a value position is a string, so no
 mapping entry and no loss concerns it; only the writer's choice of a bare word or a quoted string differs.
 
