@@ -255,6 +255,10 @@ hold (a nanosecond in a JavaScript `Date`) is reported as a `precision` loss.
 7.11. How are the mapping tables written down so the documentation and the conformance corpus are generated from
 one source (RFC-001 6.7)?
 
+Decided 2026-11-14: the corpus is the source. `conformance/mappings.gram` holds the `MappingCase`s of ADR-001 and is the only
+place the tables are written. A small script generates each language's documentation table (`docs/mappings/<language>.md`)
+from it, and CI fails when the generated files are stale.
+
 7.12. Closed: operations are not pushed down into a core (RFC-001 7.16, decided: every package is native), so
 mapping is the only point at which a value changes representation, and a loss record describes one conversion.
 
