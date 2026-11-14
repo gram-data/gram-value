@@ -236,6 +236,13 @@ the model means. That removed the `order` loss kind of 7.1.
 
 7.9. Which native values can be written as gram (5.6), and how is an unwritable value reported?
 
+Decided 2026-11-14: writable are booleans, strings, integers of any width (an unsigned integer past 64-bit signed
+becomes a `big_integer`), finite floats, arrays and string-keyed maps of writable values, and the date, point and UUID
+types through known tags (7.10). Anything else (`None`, `null`, `undefined`, `NaN`, an infinity, a non-string map key,
+a function) makes the conversion fail: it returns no value and one diagnostic per offending part, each with its
+JSON Pointer path, code `unsupported` (or `not-finite` for `NaN` and the infinities). Nothing is skipped, coerced or
+defaulted; a consumer that wants null entries dropped filters them before converting.
+
 7.10. How do the known tags map to native temporal, point and UUID types, and how is lost precision (a nanosecond
 in a JavaScript `Date`) reported?
 
