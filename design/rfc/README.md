@@ -64,5 +64,5 @@ Use `/rfc-review` before moving a draft to `review`/`accepted`.
 | RFC | Title | Status | ADRs |
 |---|---|---|---|
 | [RFC-001](RFC-001-gram-value-model.md) | A Shared Model of Gram's Data Values | draft | |
-| [RFC-002](RFC-002-host-language-mappings.md) | Host-Language Mappings and Loss Reporting | draft | |
-| [RFC-003](RFC-003-parity-conformance-packaging.md) | Parity, Conformance and Packaging Across Languages | draft | |
+| [RFC-002](RFC-002-host-language-mappings.md) | Host-Language Mappings and Loss Reporting | draft | ADR-001 |
+| [RFC-003](RFC-003-parity-conformance-packaging.md) | Parity, Conformance and Packaging Across Languages | draft | ADR-001 |

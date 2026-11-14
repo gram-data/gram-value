@@ -3,7 +3,7 @@ id: RFC-003
 title: Parity, Conformance and Packaging Across Languages
 status: draft
 created: 2026-11-14
-adrs: []
+adrs: [ADR-001]
 ---
 
 # RFC-003: Parity, Conformance and Packaging Across Languages
@@ -240,4 +240,4 @@ how is a corpus version tied to a package version?
 
 ## 8. ADRs
 
-_(populated automatically as `/adr-create` links ADRs to this RFC)_
+- ADR-001: The Conformance Corpus Is Gram Text (resolves questions 7.1, 7.2 and 7.3)

@@ -3,7 +3,7 @@ id: RFC-002
 title: Host-Language Mappings and Loss Reporting
 status: draft
 created: 2026-11-14
-adrs: []
+adrs: [ADR-001]
 ---
 
 # RFC-002: Host-Language Mappings and Loss Reporting
@@ -213,4 +213,4 @@ tree-sitter-gram 0.7.0)?
 
 ## 8. ADRs
 
-_(populated automatically as `/adr-create` links ADRs to this RFC)_
+- ADR-001: The Conformance Corpus Is Gram Text (uses the entry classes and loss kinds)
