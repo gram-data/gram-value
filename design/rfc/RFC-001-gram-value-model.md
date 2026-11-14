@@ -219,6 +219,15 @@ sign in the grammar, so only plain integers can be negative.
 7.4. Is a decimal a 64-bit float or an exact decimal? How is a measurement represented (a number and a unit,
 with the spelling kept?), and how is a range represented, including half-open ranges and measurements as ends?
 
+Decided 2026-11-14: a decimal is a 64-bit float when that float writes back as the same number (the literal with
+trailing zeros after the point dropped, keeping at least one digit, equals the float's shortest text: `0.1`, `3.14`,
+`1.50` as `1.5`), and otherwise a separate `big_decimal` kind that holds the exact digits, so every value has one form.
+A measurement is a magnitude, which is any numeric value (integer, `big_integer`, decimal or `big_decimal`), and a unit
+string, so `5kg` and `5.0kg` differ in the kind of their magnitude and nothing is rounded. A range has an optional lower
+end and an optional upper end, each a numeric value or a measurement, so `1.5m..2m` and `0x1..0x10` are representable
+and the open forms `1...` and `...5` write back; a range is inclusive, as the grammar's notes say, and an absent end is
+unbounded. The model does not check that the two ends are of one kind; a consumer may.
+
 7.5. Are the four quoting styles of a string one kind, and is a symbol a string or a kind of its own?
 
 7.6. How does a consumer extend the known-tag registry, and how does it state that it supports only some tags?
