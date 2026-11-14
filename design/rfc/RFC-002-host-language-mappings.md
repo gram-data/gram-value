@@ -246,6 +246,12 @@ defaulted; a consumer that wants null entries dropped filters them before conver
 7.10. How do the known tags map to native temporal, point and UUID types, and how is lost precision (a nanosecond
 in a JavaScript `Date`) reported?
 
+Decided 2026-11-14: each package defines the typed values (in Rust `Date`, `Time`, `DateTime`, `Duration`, `Point`, `Uuid` and
+`Week`) and these are the mapping, so every known tag converts with no loss and no dependency. Conversions to popular
+library types are optional extras and separate from the table: in Rust behind cargo features (`chrono`, `time`, `uuid`),
+in Python to `datetime` and `uuid.UUID` where exact, in TypeScript none at first. Any precision a library type cannot
+hold (a nanosecond in a JavaScript `Date`) is reported as a `precision` loss.
+
 7.11. How are the mapping tables written down so the documentation and the conformance corpus are generated from
 one source (RFC-001 6.7)?
 
