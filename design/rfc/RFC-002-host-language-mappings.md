@@ -192,6 +192,11 @@ text form is what messages and the conformance corpus use.
 
 7.3. Where is the loss policy chosen (per call, per consumer, per language), and what is the default?
 
+Decided 2026-11-14: a conversion to a host value never fails because of a loss. It returns the native value together
+with its list of losses (accept and record). Each package offers a helper that turns any loss into a failure, for a
+consumer that wants strictness, and ignoring losses is not reading the list. There is no policy argument on the
+conversion, so one behavior is tested by the corpus.
+
 7.4. In TypeScript, how is an integer beyond 2^53 (an `integer` or a `big_integer`) represented: a number with a recorded loss, a `BigInt` always, or
 a number when the value is safe and a `BigInt` otherwise?
 
