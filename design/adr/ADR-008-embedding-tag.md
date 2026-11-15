@@ -36,7 +36,8 @@ content. The content has no human-readable vector form.
 ### 2.2 The content is Base64 of a restricted SafeTensors buffer
 
 The content uses standard RFC 4648 Base64 with `+`, `/` and required `=` padding, without spaces or line
-breaks. Empty content is invalid. Decoding yields one buffer in the SafeTensors format: an eight-byte
+breaks; non-canonical unused pad bits (RFC 4648 §3.5) are `invalid-form`. Empty content is invalid.
+Decoding yields one buffer in the SafeTensors format: an eight-byte
 unsigned little-endian header length, a UTF-8 JSON header, and a contiguous tensor byte buffer.
 
 SafeTensors supplies the otherwise repeated architectural decisions: an explicit dtype, shape and data
@@ -45,7 +46,8 @@ serialization. The embedding profile narrows it as follows:
 
 - The top-level header has exactly one entry, named `embedding`, and no `__metadata__` entry. Duplicate or
   unknown entries and duplicate JSON keys are errors.
-- The tensor entry has exactly `dtype`, `shape` and `data_offsets`.
+- The tensor entry has exactly `dtype`, `shape` and `data_offsets`. Accepted inputs may place keys in
+  either JSON object in any order; the normal form fixes the order below.
 - `shape` is `[n]`, where `n` is a positive integer. An empty vector and every other rank are not embeddings
   under this tag.
 - `data_offsets` is `[0, b]`, relative to the tensor byte buffer, and `b` is exactly the byte length implied
@@ -91,14 +93,16 @@ diagnostic in the common result shape:
 | `out-of-range` | The dimension is zero or exceeds a size the receiving package can safely length-check and hold |
 | `unsupported` | The container is structurally valid but its dtype is outside `F16`, `BF16`, `F32` and `F64` |
 
-The message names the failed check. The path locates the tagged value in the value being interpreted, as it
+`unsupported` extends ADR-004's two-code diagnostic set (`invalid-form` and `out-of-range`) for tags whose
+container is valid but whose inner encoding is outside the supported set. The message names the failed check.
+The path locates the tagged value in the value being interpreted, as it
 does for the other known tags. A recognized tag with bad content is never reduced to an unknown tagged string
 by the interpretation itself; callers that choose optional tag support can still retain the original `Value`.
 
 ### 2.5 Equality remains exact, at both layers
 
 A tagged value continues to compare by exact tag and content under the value model. Two accepted inputs that
-differ only in Base64 spelling permitted by a decoder, JSON whitespace, or header padding are unequal tagged
+differ only in JSON key order, JSON whitespace, or header padding are unequal tagged
 values even when their normal content strings match.
 
 The interpreted value compares by dtype, dimension and payload bytes. There is no numeric equivalence across
@@ -120,6 +124,9 @@ content string. No package is required to decode tensor elements or depend on an
 | Go | `Embedding`, with `EmbeddingDtype` and `[]byte` |
 | Swift | `GramEmbedding`, with `GramEmbeddingDtype` and `Foundation.Data` |
 
+The Haskell implementation has been deferred; when its package is added, it will join with the same
+byte-buffer `Embedding` shape.
+
 Conversions to NumPy, framework tensors, JavaScript typed arrays or other native vector libraries are optional
 extras, not the standard mapping. An extra that converts to ordinary host floats must use the existing loss
 reporting and can never silently change the dtype. Ordinary gram arrays do not implicitly become embeddings.
@@ -133,7 +140,8 @@ rule, including duplicate-key and exact-length checks.
 Accepted cases cover all four dtypes, the minimum dimension, signed zero and non-finite payload bit patterns,
 a padded but valid header, and a non-normal input with its normal content string. Rejected cases cover bad
 Base64, missing or extra tensors and metadata, wrong rank, zero dimension, wrong offsets, trailing or missing
-payload bytes, and each unsupported dtype. Every language runs the same cases; native mapping cases record
+payload bytes, and each unsupported dtype; `out-of-range` corpus cases test zero dimension rather than
+platform-specific upper bounds. Every language runs the same cases; native mapping cases record
 `Embedding`/`GramEmbedding` as exact in both directions.
 
 ## 3. Alternatives Considered
@@ -179,8 +187,9 @@ one canonical string and is available in every target standard library.
 - Quantized and binary embeddings remain unsupported. Adding them requires a later ADR covering scales,
   ranges, zero points or bit packing, as appropriate.
 - Follow-up work is to amend `spec/tags.md`, add the diagnostic and mapping vocabulary, add corpus cases,
-  implement the five native interpreters, and update ADR-004's known-tag count and ADR-006's known-tag
-  mapping prose. Tree-sitter-gram's known-tag documentation should link to the updated shared specification.
+  implement the five native interpreters, and update ADR-004's known-tag count and diagnostic codes as well as
+  ADR-006's known-tag mapping prose. Tree-sitter-gram's known-tag documentation should link to the updated
+  shared specification.
 
 ## 5. Related
 
