@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import builtins
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -116,7 +117,7 @@ class Embedding:
     bytes: bytes
 
     @classmethod
-    def create(cls, dtype: EmbeddingDtype, dimension: int, data: bytes) -> Result[Embedding]:
+    def create(cls, dtype: EmbeddingDtype, dimension: int, data: builtins.bytes) -> Result[Embedding]:
         if (
             isinstance(dimension, bool)
             or not isinstance(dimension, int)
