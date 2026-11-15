@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "gram-value"
-version = "0.1.0"
+version = "0.2.0"
 description = "The data values of the gram notation: kinds, equality, canonical text, known-tag interpretation and mapping to Python values"
 readme = "README.md"
 license = "MIT"

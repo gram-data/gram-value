@@ -1,6 +1,6 @@
 [package]
 name = "gram-value"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.75"
 description = "The data values of the gram notation: kinds, equality, canonical text and known-tag interpretation"
