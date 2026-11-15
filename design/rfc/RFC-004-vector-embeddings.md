@@ -146,6 +146,8 @@ property across systems.
 
 ## 7. Open Questions
 
+ADR-008 resolves all six questions below (name, content form, accepted encodings, validation and diagnostics, equality, host mappings). They are kept as the record of what the RFC left to it.
+
 7.1. What is the tag's name, and does the name scope it to embeddings or to vectors generally?
 
 7.2. What is the content form: which container, which text encoding of it, and how are the dimension and

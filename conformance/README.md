@@ -15,3 +15,13 @@ them; it generates `docs/mappings/<language>.md`, and CI fails if those files ar
 Each package also keeps a `skips.gram` (cases it does not pass yet, with reasons) and writes
 `conformance-results.gram`; `scripts/gen-parity-matrix.py` merges the results of all packages into the parity matrix
 (see ADR-001 2.7), which CI publishes as a job summary.
+
+## Embedding cases (ADR-008)
+
+The `tag-embedding-*` cases in `tags.gram` test the `embedding` profile. Accepted: output of the reference
+SafeTensors writer for `F32`, `F64` and `F16` (`-ref-*`; each normal content string equals its input). Rejected:
+a dimension written as `2.0`, `1e1` or `02` (`invalid-form`), a lower-case dtype (`unsupported`) and a dimension
+beyond 64 bits (`out-of-range`). The rest of the profile's cases (the other dtypes and bit patterns, non-normal
+spellings, duplicate keys, header-length and dimension bounds, wrong ranks and lengths, each unsupported dtype)
+are still to be written; they are listed in ADR-008 2.2 to 2.4 as the conditions to cover. No package implements
+the tag yet, so every package skips these cases.
