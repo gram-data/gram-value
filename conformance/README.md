@@ -18,10 +18,8 @@ Each package also keeps a `skips.gram` (cases it does not pass yet, with reasons
 
 ## Embedding cases (ADR-008)
 
-The `tag-embedding-*` cases in `tags.gram` test the `embedding` profile. Accepted: output of the reference
-SafeTensors writer for `F32`, `F64` and `F16` (`-ref-*`; each normal content string equals its input). Rejected:
-a dimension written as `2.0`, `1e1` or `02` (`invalid-form`), a lower-case dtype (`unsupported`) and a dimension
-beyond 64 bits (`out-of-range`). The rest of the profile's cases (the other dtypes and bit patterns, non-normal
-spellings, duplicate keys, header-length and dimension bounds, wrong ranks and lengths, each unsupported dtype)
-are still to be written; they are listed in ADR-008 2.2 to 2.4 as the conditions to cover. No package implements
-the tag yet, so every package skips these cases.
+The `tag-embedding-*` cases in `tags.gram` and `map-embedding-*` cases in `mappings.gram` test the `embedding` profile across all five active packages:
+- Accepted: `F16`, `BF16`, `F32`, `F64`, non-normal header key order/whitespace normalization, dimension `1`, and verbatim IEEE bit patterns (`-0.0`, `±inf`, `NaN`).
+- Rejected (`invalid-form`): empty content, malformed Base64, whitespace, non-zero pad bits, short buffers, header length `4097` or truncated, invalid UTF-8, malformed JSON, duplicate keys (both levels), `__metadata__`, extra/missing keys, wrong rank, negative or non-plain-integer dimensions, mismatched `data_offsets`, and trailing/missing payload bytes.
+- Rejected (`out-of-range`): dimension `0`, `1048577`, and dimensions beyond 64 bits.
+- Rejected (`unsupported`): non-matching `dtype` strings (`f32`, `I32`, `F8_E4M3`).

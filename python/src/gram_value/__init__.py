@@ -19,7 +19,7 @@ from .diagnostic import (
     ok,
     path_to_pointer,
 )
-from .tags import KNOWN_TAGS, Interpretation, interpret, interpret_tag
+from .tags import KNOWN_TAGS, Embedding, EmbeddingDtype, Interpretation, interpret, interpret_tag
 from .text import Context, string_text, to_text
 from .value import (
     KINDS,
@@ -67,6 +67,8 @@ __all__ = [
     "Context",
     "DecimalValue",
     "Diagnostic",
+    "Embedding",
+    "EmbeddingDtype",
     "GramValueError",
     "IntegerValue",
     "Interpretation",

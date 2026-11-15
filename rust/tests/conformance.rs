@@ -461,6 +461,7 @@ fn roundtrip(native: &str, v: &Value) -> Result<String, Diagnostics> {
         "Tagged" => Value::from(gram_value::Tagged::try_from(v)?),
         "Range" => Value::from(gram_value::Range::try_from(v)?),
         "Measurement" => Value::from(gram_value::Measurement::try_from(v)?),
+        "Embedding" => Value::from(gram_value::Embedding::try_from(v)?),
         // The typed values of the known tags (ADR-006 2.5).
         "Date" | "Time" | "DateTime" | "Duration" | "Point" | "Uuid" | "Week" => {
             let i = tags::interpret(v)?.ok_or_else(|| {

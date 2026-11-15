@@ -18,7 +18,7 @@ relate-gram, which loads gram into the Relate database, already validates eight 
 
 ### 2.1 The set
 
-Ten tags are known, written in exactly this case: `date`, `time`, `localtime`, `datetime`, `localdatetime`, `duration`, `point`, `uuid`, `week` and `weekDate`. Any other tag, including `url`, `md` and the constraint dialects, is unknown and passes through unchanged.
+Eleven tags are known (originally ten, with `embedding` added by ADR-008), written in exactly this case: `date`, `time`, `localtime`, `datetime`, `localdatetime`, `duration`, `point`, `uuid`, `week`, `weekDate`, and `embedding`. Any other tag, including `url`, `md` and the constraint dialects, is unknown and passes through unchanged.
 
 ### 2.2 One function per tag, no registry
 
@@ -41,7 +41,7 @@ The forms are the extended-format ISO 8601 representations, restricted as stated
 
 ### 2.4 Interpretation results
 
-An interpretation returns the result shape of ADR-005: the interpreted value, or, on failure, no value and a list of diagnostics. A diagnostic has a code, a message that names what is wrong, and a path (ADR-005): the location of the tagged value within the value being interpreted. Two codes exist: `invalid-form` (the text does not follow the form) and `out-of-range` (the form is right but a part is outside its range, such as month 13 or a nonexistent day). A recognized tag with bad content is never reinterpreted as a plain string.
+An interpretation returns the result shape of ADR-005: the interpreted value, or, on failure, no value and a list of diagnostics. A diagnostic has a code, a message that names what is wrong, and a path (ADR-005): the location of the tagged value within the value being interpreted. Originally two codes existed: `invalid-form` (the text does not follow the form) and `out-of-range` (the form is right but a part is outside its range, such as month 13 or a nonexistent day); ADR-008 adds `unsupported` for a structurally valid `embedding` container whose `dtype` is outside the supported set. A recognized tag with bad content is never reinterpreted as a plain string.
 
 ### 2.5 The value is not normalized; the interpretation has a normal form
 

@@ -166,6 +166,8 @@ func fromNative(x any, path []PathSegment) (Value, Diagnostics) {
 			return nil, at(path, err.(Diagnostics))
 		}
 		return v, nil
+	case Embedding:
+		return n.ToValue(), nil
 	case Measurement:
 		mag, errs := numberFromNative(n.Magnitude, append(append([]PathSegment(nil), path...), Key("magnitude")))
 		if errs != nil {

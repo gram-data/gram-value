@@ -1,4 +1,4 @@
-//! Interpretation of the ten known tags (spec/tags.md).
+//! Interpretation of the eleven known tags (spec/tags.md).
 //!
 //! Interpretation checks a tagged string's content form and returns a typed value and a normal
 //! content string. It never changes the tagged value.
@@ -102,6 +102,115 @@ pub struct Week {
     pub day: Option<u8>,
 }
 
+/// The floating-point element encoding of an [`Embedding`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum EmbeddingDtype {
+    /// IEEE 754 binary16 (2 bytes per element).
+    F16,
+    /// Brain floating-point 16-bit (2 bytes per element).
+    BF16,
+    /// IEEE 754 binary32 (4 bytes per element).
+    F32,
+    /// IEEE 754 binary64 (8 bytes per element).
+    F64,
+}
+
+impl EmbeddingDtype {
+    /// Element width in bytes.
+    pub const fn width(self) -> usize {
+        match self {
+            EmbeddingDtype::F16 | EmbeddingDtype::BF16 => 2,
+            EmbeddingDtype::F32 => 4,
+            EmbeddingDtype::F64 => 8,
+        }
+    }
+
+    /// Exact SafeTensors dtype string.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            EmbeddingDtype::F16 => "F16",
+            EmbeddingDtype::BF16 => "BF16",
+            EmbeddingDtype::F32 => "F32",
+            EmbeddingDtype::F64 => "F64",
+        }
+    }
+}
+
+/// Maximum embedding dimension (`2^20`, ADR-008 2.4).
+pub const MAX_EMBEDDING_DIMENSION: usize = 1_048_576;
+
+/// A rank-one dense floating-point tensor carried by an `embedding` tag (ADR-008).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Embedding {
+    dtype: EmbeddingDtype,
+    dimension: usize,
+    bytes: Vec<u8>,
+}
+
+impl Embedding {
+    /// Construct an embedding from a dtype, positive dimension (`<= 1,048,576`), and exact little-endian payload bytes.
+    pub fn new(
+        dtype: EmbeddingDtype,
+        dimension: usize,
+        bytes: Vec<u8>,
+    ) -> Result<Self, Diagnostic> {
+        if dimension == 0 || dimension > MAX_EMBEDDING_DIMENSION {
+            return Err(Diagnostic::new(
+                "out-of-range",
+                format!(
+                    "embedding: dimension {dimension} must be between 1 and {MAX_EMBEDDING_DIMENSION}"
+                ),
+            ));
+        }
+        let expected = dimension * dtype.width();
+        if bytes.len() != expected {
+            return Err(Diagnostic::new(
+                "invalid-form",
+                format!(
+                    "embedding: expected {expected} payload bytes for {dimension} {:?} elements, got {}",
+                    dtype,
+                    bytes.len()
+                ),
+            ));
+        }
+        Ok(Embedding {
+            dtype,
+            dimension,
+            bytes,
+        })
+    }
+
+    /// The element encoding.
+    pub fn dtype(&self) -> EmbeddingDtype {
+        self.dtype
+    }
+
+    /// The number of elements (`1 ..= 1,048,576`).
+    pub fn dimension(&self) -> usize {
+        self.dimension
+    }
+
+    /// The raw little-endian payload bytes.
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    /// Consume the embedding and return its raw payload bytes.
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.bytes
+    }
+
+    /// The canonical Base64-encoded SafeTensors content string (ADR-008 2.2).
+    pub fn to_normal_content(&self) -> String {
+        encode_embedding_normal(self.dtype, self.dimension, &self.bytes)
+    }
+
+    /// Convert to a `Value::Tagged("embedding", ...)` using the canonical normal content string.
+    pub fn to_value(&self) -> Value {
+        Value::tagged("embedding", self.to_normal_content()).expect("embedding is a valid symbol")
+    }
+}
+
 /// What a known tag's content means.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Typed {
@@ -119,6 +228,8 @@ pub enum Typed {
     Uuid([u8; 16]),
     /// `week` and `weekDate`.
     Week(Week),
+    /// `embedding`.
+    Embedding(Embedding),
 }
 
 /// A successful interpretation.
@@ -132,8 +243,8 @@ pub struct Interpretation {
     pub normal_content: String,
 }
 
-/// The ten known tags.
-pub const KNOWN_TAGS: [&str; 10] = [
+/// The eleven known tags.
+pub const KNOWN_TAGS: [&str; 11] = [
     "date",
     "time",
     "localtime",
@@ -144,6 +255,7 @@ pub const KNOWN_TAGS: [&str; 10] = [
     "uuid",
     "week",
     "weekDate",
+    "embedding",
 ];
 
 /// Interpret a tagged value. Returns `Ok(None)` for a value that is not tagged or whose tag is unknown.
@@ -198,10 +310,14 @@ pub fn interpret_tag(tag: &str, content: &str) -> Result<Option<Interpretation>,
             Typed::Week(parse_week(content, false).map_err(fail)?),
             content.to_string(),
         ),
-        _ => (
+        "weekDate" => (
             Typed::Week(parse_week(content, true).map_err(fail)?),
             content.to_string(),
         ),
+        _ => {
+            let (emb, n) = parse_embedding(content).map_err(fail)?;
+            (Typed::Embedding(emb), n)
+        }
     };
     Ok(Some(Interpretation {
         tag: name,
@@ -668,4 +784,412 @@ fn parse_week(s: &str, with_day: bool) -> Result<Week, Fault> {
         }
     }
     Ok(Week { year, week, day })
+}
+
+// ---- embedding (ADR-008) --------------------------------------------------------------------
+
+const MAX_BASE64_CHARS: usize = 11_190_284;
+const MAX_DECODED_BYTES: usize = 8_392_712;
+const MAX_HEADER_BYTES: usize = 4_096;
+
+fn b64_val(b: u8) -> Option<u8> {
+    match b {
+        b'A'..=b'Z' => Some(b - b'A'),
+        b'a'..=b'z' => Some(b - b'a' + 26),
+        b'0'..=b'9' => Some(b - b'0' + 52),
+        b'+' => Some(62),
+        b'/' => Some(63),
+        _ => None,
+    }
+}
+
+fn decode_strict_base64(content: &str) -> Result<Vec<u8>, Fault> {
+    let raw = content.as_bytes();
+    // 1. Base64 syntax (invalid-form)
+    if raw.is_empty() {
+        return Err(form("empty Base64 content"));
+    }
+    if raw.len() % 4 != 0 {
+        return Err(form("Base64 length must be a multiple of 4"));
+    }
+    let pad_count = if raw.ends_with(b"==") {
+        2
+    } else if raw.ends_with(b"=") {
+        1
+    } else {
+        0
+    };
+    let data_end = raw.len() - pad_count;
+    for (i, &b) in raw[..data_end].iter().enumerate() {
+        if b64_val(b).is_none() {
+            return Err(form(format!("invalid Base64 byte at index {i}")));
+        }
+    }
+    if pad_count == 1 {
+        let v3 = b64_val(raw[raw.len() - 2]).expect("checked above");
+        if (v3 & 0x03) != 0 {
+            return Err(form("non-canonical Base64 pad bits"));
+        }
+    } else if pad_count == 2 {
+        let v2 = b64_val(raw[raw.len() - 3]).expect("checked above");
+        if (v2 & 0x0F) != 0 {
+            return Err(form("non-canonical Base64 pad bits"));
+        }
+    }
+
+    // 2. Decoded-size bound (out-of-range before allocation)
+    let decoded_len = (raw.len() / 4) * 3 - pad_count;
+    if raw.len() > MAX_BASE64_CHARS || decoded_len > MAX_DECODED_BYTES {
+        return Err(range(format!(
+            "embedding exceeds maximum decoded size of {MAX_DECODED_BYTES} bytes"
+        )));
+    }
+
+    let mut out = Vec::with_capacity(decoded_len);
+    let mut i = 0;
+    while i < raw.len() {
+        let a = b64_val(raw[i]).expect("checked");
+        let b = b64_val(raw[i + 1]).expect("checked");
+        out.push((a << 2) | (b >> 4));
+        if raw[i + 2] != b'=' {
+            let c = b64_val(raw[i + 2]).expect("checked");
+            out.push((b << 4) | (c >> 2));
+            if raw[i + 3] != b'=' {
+                let d = b64_val(raw[i + 3]).expect("checked");
+                out.push((c << 6) | d);
+            }
+        }
+        i += 4;
+    }
+    Ok(out)
+}
+
+fn encode_base64(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let b0 = chunk[0];
+        let b1 = if chunk.len() > 1 { chunk[1] } else { 0 };
+        let b2 = if chunk.len() > 2 { chunk[2] } else { 0 };
+        out.push(TABLE[(b0 >> 2) as usize] as char);
+        out.push(TABLE[(((b0 & 0x03) << 4) | (b1 >> 4)) as usize] as char);
+        if chunk.len() > 1 {
+            out.push(TABLE[(((b1 & 0x0F) << 2) | (b2 >> 6)) as usize] as char);
+        } else {
+            out.push('=');
+        }
+        if chunk.len() > 2 {
+            out.push(TABLE[(b2 & 0x3F) as usize] as char);
+        } else {
+            out.push('=');
+        }
+    }
+    out
+}
+
+fn encode_embedding_normal(dtype: EmbeddingDtype, dimension: usize, payload: &[u8]) -> String {
+    let json = format!(
+        "{{\"embedding\":{{\"dtype\":\"{}\",\"shape\":[{dimension}],\"data_offsets\":[0,{}]}}}}",
+        dtype.as_str(),
+        payload.len()
+    );
+    let pad = (8 - (json.len() % 8)) % 8;
+    let header_len = json.len() + pad;
+    let mut buf = Vec::with_capacity(8 + header_len + payload.len());
+    buf.extend_from_slice(&(header_len as u64).to_le_bytes());
+    buf.extend_from_slice(json.as_bytes());
+    buf.resize(8 + header_len, b' ');
+    buf.extend_from_slice(payload);
+    encode_base64(&buf)
+}
+
+enum ShapeDim {
+    Valid(u64),
+    OverflowU64,
+}
+
+struct HeaderParser<'a> {
+    bytes: &'a [u8],
+    pos: usize,
+}
+
+impl<'a> HeaderParser<'a> {
+    fn new(s: &'a str) -> Self {
+        Self {
+            bytes: s.as_bytes(),
+            pos: 0,
+        }
+    }
+
+    fn skip_ws(&mut self) {
+        while self.pos < self.bytes.len()
+            && matches!(self.bytes[self.pos], b' ' | b'\t' | b'\n' | b'\r')
+        {
+            self.pos += 1;
+        }
+    }
+
+    fn expect_byte(&mut self, want: u8) -> Result<(), Fault> {
+        self.skip_ws();
+        if self.pos < self.bytes.len() && self.bytes[self.pos] == want {
+            self.pos += 1;
+            Ok(())
+        } else {
+            Err(form(format!("expected '{}' in JSON header", want as char)))
+        }
+    }
+
+    fn parse_string(&mut self) -> Result<String, Fault> {
+        self.skip_ws();
+        if self.pos >= self.bytes.len() || self.bytes[self.pos] != b'"' {
+            return Err(form("expected JSON string"));
+        }
+        self.pos += 1;
+        let mut out = String::new();
+        while self.pos < self.bytes.len() {
+            let b = self.bytes[self.pos];
+            if b == b'"' {
+                self.pos += 1;
+                return Ok(out);
+            }
+            if b < 0x20 {
+                return Err(form("unescaped control character in JSON string"));
+            }
+            if b == b'\\' {
+                self.pos += 1;
+                if self.pos >= self.bytes.len() {
+                    return Err(form("unterminated JSON escape"));
+                }
+                let esc = self.bytes[self.pos];
+                self.pos += 1;
+                match esc {
+                    b'"' => out.push('"'),
+                    b'\\' => out.push('\\'),
+                    b'/' => out.push('/'),
+                    b'b' => out.push('\u{0008}'),
+                    b'f' => out.push('\u{000C}'),
+                    b'n' => out.push('\n'),
+                    b'r' => out.push('\r'),
+                    b't' => out.push('\t'),
+                    b'u' => {
+                        let code = self.parse_hex4()?;
+                        if (0xD800..=0xDBFF).contains(&code) {
+                            if self.pos + 2 > self.bytes.len()
+                                || self.bytes[self.pos] != b'\\'
+                                || self.bytes[self.pos + 1] != b'u'
+                            {
+                                return Err(form("unpaired UTF-16 high surrogate in JSON string"));
+                            }
+                            self.pos += 2;
+                            let low = self.parse_hex4()?;
+                            if !(0xDC00..=0xDFFF).contains(&low) {
+                                return Err(form("invalid UTF-16 low surrogate in JSON string"));
+                            }
+                            let cp = 0x10000
+                                + (((u32::from(code) - 0xD800) << 10) | (u32::from(low) - 0xDC00));
+                            let ch =
+                                char::from_u32(cp).ok_or_else(|| form("invalid Unicode scalar"))?;
+                            out.push(ch);
+                        } else if (0xDC00..=0xDFFF).contains(&code) {
+                            return Err(form("unpaired UTF-16 low surrogate in JSON string"));
+                        } else {
+                            let ch = char::from_u32(u32::from(code))
+                                .ok_or_else(|| form("invalid Unicode scalar"))?;
+                            out.push(ch);
+                        }
+                    }
+                    _ => return Err(form("invalid JSON escape sequence")),
+                }
+            } else {
+                let s = std::str::from_utf8(&self.bytes[self.pos..])
+                    .map_err(|_| form("invalid UTF-8 in JSON string"))?;
+                let ch = s
+                    .chars()
+                    .next()
+                    .ok_or_else(|| form("unexpected end of JSON string"))?;
+                out.push(ch);
+                self.pos += ch.len_utf8();
+            }
+        }
+        Err(form("unterminated JSON string"))
+    }
+
+    fn parse_hex4(&mut self) -> Result<u16, Fault> {
+        if self.pos + 4 > self.bytes.len() {
+            return Err(form("short \\uXXXX escape in JSON string"));
+        }
+        let hex = std::str::from_utf8(&self.bytes[self.pos..self.pos + 4])
+            .map_err(|_| form("invalid \\uXXXX escape"))?;
+        let val =
+            u16::from_str_radix(hex, 16).map_err(|_| form("invalid hex in \\uXXXX escape"))?;
+        self.pos += 4;
+        Ok(val)
+    }
+
+    fn parse_plain_uint_token(&mut self) -> Result<&'a str, Fault> {
+        self.skip_ws();
+        let start = self.pos;
+        while self.pos < self.bytes.len() && self.bytes[self.pos].is_ascii_digit() {
+            self.pos += 1;
+        }
+        if self.pos == start {
+            return Err(form("expected plain base-10 integer"));
+        }
+        let len = self.pos - start;
+        if len > 1 && self.bytes[start] == b'0' {
+            return Err(form("leading zero in JSON integer"));
+        }
+        if self.pos < self.bytes.len() && matches!(self.bytes[self.pos], b'.' | b'e' | b'E') {
+            return Err(form("non-integer JSON number"));
+        }
+        Ok(std::str::from_utf8(&self.bytes[start..self.pos]).expect("ASCII digits"))
+    }
+
+    fn parse_shape(&mut self) -> Result<ShapeDim, Fault> {
+        self.expect_byte(b'[')?;
+        let tok = self.parse_plain_uint_token()?;
+        self.expect_byte(b']')?;
+        Ok(match tok.parse::<u64>() {
+            Ok(n) => ShapeDim::Valid(n),
+            Err(_) => ShapeDim::OverflowU64,
+        })
+    }
+
+    fn parse_data_offsets(&mut self) -> Result<(u64, u64), Fault> {
+        self.expect_byte(b'[')?;
+        let t0 = self.parse_plain_uint_token()?;
+        self.expect_byte(b',')?;
+        let t1 = self.parse_plain_uint_token()?;
+        self.expect_byte(b']')?;
+        let a = t0
+            .parse::<u64>()
+            .map_err(|_| form("data_offsets exceeds 64 unsigned bits"))?;
+        let b = t1
+            .parse::<u64>()
+            .map_err(|_| form("data_offsets exceeds 64 unsigned bits"))?;
+        Ok((a, b))
+    }
+
+    fn parse_header(&mut self) -> Result<(String, ShapeDim, (u64, u64)), Fault> {
+        self.expect_byte(b'{')?;
+        let top_key = self.parse_string()?;
+        if top_key != "embedding" {
+            return Err(form(format!("unexpected top-level key {top_key:?}")));
+        }
+        self.expect_byte(b':')?;
+        self.expect_byte(b'{')?;
+
+        let mut dtype: Option<String> = None;
+        let mut shape: Option<ShapeDim> = None;
+        let mut offsets: Option<(u64, u64)> = None;
+
+        for idx in 0..3 {
+            if idx > 0 {
+                self.expect_byte(b',')?;
+            }
+            let key = self.parse_string()?;
+            self.expect_byte(b':')?;
+            match key.as_str() {
+                "dtype" => {
+                    if dtype.is_some() {
+                        return Err(form("duplicate key \"dtype\""));
+                    }
+                    dtype = Some(self.parse_string()?);
+                }
+                "shape" => {
+                    if shape.is_some() {
+                        return Err(form("duplicate key \"shape\""));
+                    }
+                    shape = Some(self.parse_shape()?);
+                }
+                "data_offsets" => {
+                    if offsets.is_some() {
+                        return Err(form("duplicate key \"data_offsets\""));
+                    }
+                    offsets = Some(self.parse_data_offsets()?);
+                }
+                _ => return Err(form(format!("unexpected tensor key {key:?}"))),
+            }
+        }
+        self.expect_byte(b'}')?;
+        self.expect_byte(b'}')?;
+        self.skip_ws();
+        if self.pos != self.bytes.len() {
+            return Err(form("trailing bytes in SafeTensors JSON header"));
+        }
+        Ok((
+            dtype.expect("3 distinct keys checked"),
+            shape.expect("3 distinct keys checked"),
+            offsets.expect("3 distinct keys checked"),
+        ))
+    }
+}
+
+fn parse_embedding(content: &str) -> Result<(Embedding, String), Fault> {
+    // Steps 1 & 2: Base64 syntax + decoded-size bound before allocation.
+    let decoded = decode_strict_base64(content)?;
+
+    // Step 3: SafeTensors container & JSON profile (invalid-form).
+    if decoded.len() < 8 {
+        return Err(form("SafeTensors buffer shorter than 8 bytes"));
+    }
+    let header_len_u64 = u64::from_le_bytes(decoded[0..8].try_into().expect("8 bytes"));
+    let remaining = (decoded.len() - 8) as u64;
+    if header_len_u64 > MAX_HEADER_BYTES as u64 || header_len_u64 > remaining {
+        return Err(form("SafeTensors header length exceeds 4,096 or buffer"));
+    }
+    let header_len = header_len_u64 as usize;
+    let header_str = std::str::from_utf8(&decoded[8..8 + header_len])
+        .map_err(|_| form("SafeTensors header is not valid UTF-8"))?;
+    let (dtype_str, shape_dim, (off0, off1)) = HeaderParser::new(header_str).parse_header()?;
+
+    // Step 4: dtype (unsupported).
+    let dtype = match dtype_str.as_str() {
+        "F16" => EmbeddingDtype::F16,
+        "BF16" => EmbeddingDtype::BF16,
+        "F32" => EmbeddingDtype::F32,
+        "F64" => EmbeddingDtype::F64,
+        _ => {
+            return Err(Fault {
+                code: "unsupported",
+                message: format!("unsupported embedding dtype {dtype_str:?}"),
+            })
+        }
+    };
+
+    // Step 5: dimension range (out-of-range).
+    let dim_u64 = match shape_dim {
+        ShapeDim::OverflowU64 => return Err(range("embedding dimension exceeds 64 unsigned bits")),
+        ShapeDim::Valid(n) => n,
+    };
+    if dim_u64 == 0 || dim_u64 > MAX_EMBEDDING_DIMENSION as u64 {
+        return Err(range(format!(
+            "embedding dimension {dim_u64} must be between 1 and {MAX_EMBEDDING_DIMENSION}"
+        )));
+    }
+    let dimension = dim_u64 as usize;
+
+    // Step 6: stated and actual byte lengths (invalid-form).
+    let expected_bytes = dimension * dtype.width();
+    if off0 != 0 || off1 != expected_bytes as u64 {
+        return Err(form(format!(
+            "data_offsets [{off0}, {off1}] does not match expected [0, {expected_bytes}]"
+        )));
+    }
+    let payload_start = 8 + header_len;
+    if decoded.len() != payload_start + expected_bytes {
+        return Err(form(format!(
+            "payload length {} does not match expected {expected_bytes}",
+            decoded.len() - payload_start
+        )));
+    }
+
+    let payload = decoded[payload_start..].to_vec();
+    let normal = encode_embedding_normal(dtype, dimension, &payload);
+    let emb = Embedding {
+        dtype,
+        dimension,
+        bytes: payload,
+    };
+    Ok((emb, normal))
 }

@@ -5,7 +5,7 @@
 //! problem found, each with its path.
 
 use crate::diagnostic::{Diagnostic, PathSegment};
-use crate::tags::Interpretation;
+use crate::tags::{interpret_tag, Embedding, Interpretation, Typed};
 use crate::value::{BigDecimal, BigInteger, Measurement, Range, Tagged, Value};
 use std::collections::BTreeMap;
 use std::fmt;
@@ -148,6 +148,17 @@ native!(BigDecimal, |v| match v {
     Value::BigDecimal(b) => Ok(b.clone()),
     other => Err(mismatch("a big decimal", other)),
 });
+native!(Embedding, |v| match v {
+    Value::Tagged(t) if t.tag() == "embedding" => match interpret_tag("embedding", t.content()) {
+        Ok(Some(Interpretation {
+            typed: Typed::Embedding(emb),
+            ..
+        })) => Ok(emb),
+        Ok(_) => unreachable!("embedding tag always produces Typed::Embedding"),
+        Err(d) => Err(Diagnostics::from(d)),
+    },
+    other => Err(mismatch("an embedding", other)),
+});
 native!(Value, |v| Ok(v.clone()));
 
 impl<T: FromValue> FromValue for Vec<T> {
@@ -278,6 +289,16 @@ impl From<BigInteger> for Value {
 impl From<BigDecimal> for Value {
     fn from(b: BigDecimal) -> Value {
         Value::BigDecimal(b)
+    }
+}
+impl From<Embedding> for Value {
+    fn from(e: Embedding) -> Value {
+        e.to_value()
+    }
+}
+impl From<&Embedding> for Value {
+    fn from(e: &Embedding) -> Value {
+        e.to_value()
     }
 }
 impl<T: Into<Value>> From<Vec<T>> for Value {

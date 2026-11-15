@@ -151,6 +151,8 @@ private func convertNative(_ x: Any, _ path: [PathSegment], _ errs: inout [Diagn
     case let s as String: return .string(s)
     case let t as GramTagged:
         do { return try Value.makeTagged(t.tag, t.content) } catch let d as Diagnostics { errs += d.at(path).items; return nil } catch { return nil }
+    case let e as GramEmbedding:
+        return e.toValue()
     case let m as GramMeasurement:
         guard let mag = numberFromNative(m.magnitude, path + [.key("magnitude")], &errs) else { return nil }
         do { return try Value.makeMeasurement(mag, unit: m.unit) } catch let d as Diagnostics { errs += d.at(path).items; return nil } catch { return nil }

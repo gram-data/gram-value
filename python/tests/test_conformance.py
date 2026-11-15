@@ -229,6 +229,7 @@ TAG_FOR_NATIVE = {
     "Point": "point",
     "Uuid": "uuid",
     "Week": "week",
+    "Embedding": "embedding",
 }
 
 

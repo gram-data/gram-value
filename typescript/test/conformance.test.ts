@@ -260,6 +260,7 @@ const TAG_FOR_NATIVE: Record<string, string> = {
   Point: "point",
   Uuid: "uuid",
   Week: "week",
+  Embedding: "embedding",
 };
 
 function runMapping(c: Case): void {

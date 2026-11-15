@@ -26,7 +26,7 @@ all of them instead of stopping at the first, with each path relative to the who
 
 `duplicate-key`, `not-finite`, `invalid-tag`, `invalid-unit`, `no-ends`, `invalid-range-end`, `invalid-string`,
 `invalid-integer`, `invalid-decimal` ([values.md](values.md)); `unwritable` ([text.md](text.md)); `invalid-form`,
-`out-of-range` ([tags.md](tags.md)). Loss codes belong to the host mappings and are not defined yet.
+`out-of-range`, `unsupported` ([tags.md](tags.md)). Loss codes belong to the host mappings and are not defined yet.
 
 ## 3. Idiom
 

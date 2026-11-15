@@ -1,5 +1,7 @@
-/// The ten tags whose content has a standard form (ADR-004).
-public let knownTags = ["date", "time", "localtime", "datetime", "localdatetime", "duration", "point", "uuid", "week", "weekDate"]
+import Foundation
+
+/// The eleven tags whose content has a standard form (ADR-004, ADR-008).
+public let knownTags = ["date", "time", "localtime", "datetime", "localdatetime", "duration", "point", "uuid", "week", "weekDate", "embedding"]
 
 public struct GramDate: Sendable, Hashable {
     public let year: Int64
@@ -53,6 +55,57 @@ public struct GramWeek: Sendable, Hashable {
     public let day: Int?
 }
 
+public enum GramEmbeddingDtype: String, Sendable, Hashable {
+    case f16 = "F16"
+    case bf16 = "BF16"
+    case f32 = "F32"
+    case f64 = "F64"
+
+    public var width: Int {
+        switch self {
+        case .f16, .bf16: return 2
+        case .f32: return 4
+        case .f64: return 8
+        }
+    }
+}
+
+public let maxEmbeddingDimension = 1_048_576
+
+/// A rank-one dense floating-point tensor carried by an `embedding` tag (ADR-008).
+public struct GramEmbedding: Sendable, Hashable {
+    public let dtype: GramEmbeddingDtype
+    public let dimension: Int
+    public let bytes: Data
+
+    public init(dtype: GramEmbeddingDtype, dimension: Int, bytes: Data) throws {
+        guard dimension >= 1, dimension <= maxEmbeddingDimension else {
+            throw Diagnostics(code: "out-of-range", message: "embedding: dimension \(dimension) must be between 1 and \(maxEmbeddingDimension)")
+        }
+        let expected = dimension * dtype.width
+        guard bytes.count == expected else {
+            throw Diagnostics(code: "invalid-form", message: "embedding: expected \(expected) payload bytes, got \(bytes.count)")
+        }
+        self.dtype = dtype
+        self.dimension = dimension
+        self.bytes = bytes
+    }
+
+    init(validated dtype: GramEmbeddingDtype, dimension: Int, bytes: Data) {
+        self.dtype = dtype
+        self.dimension = dimension
+        self.bytes = bytes
+    }
+
+    public func toNormalContent() -> String {
+        encodeEmbeddingNormal(dtype, dimension, bytes)
+    }
+
+    public func toValue() -> Value {
+        .tagged(tag: "embedding", content: toNormalContent())
+    }
+}
+
 /// What a known tag's content means.
 public enum Typed: Sendable, Hashable {
     case date(GramDate)
@@ -62,6 +115,7 @@ public enum Typed: Sendable, Hashable {
     case point(GramPoint)
     case uuid(GramUUID)
     case week(GramWeek)
+    case embedding(GramEmbedding)
 }
 
 /// A successful interpretation of a known tag.
@@ -82,6 +136,7 @@ private struct Fault: Error {
 
 private func form(_ m: String) -> Fault { Fault(code: "invalid-form", message: m) }
 private func range(_ m: String) -> Fault { Fault(code: "out-of-range", message: m) }
+private func unsupported(_ m: String) -> Fault { Fault(code: "unsupported", message: m) }
 
 /// Interpret a tagged value. Returns nil for a value that is not tagged or whose tag is unknown; throws
 /// `Diagnostics` (code `invalid-form` or `out-of-range`) for a known tag with bad content.
@@ -121,6 +176,9 @@ private func run(_ tag: String, _ b: [UInt8], _ content: String) throws -> Inter
         return Interpretation(tag: tag, typed: .uuid(try parseUUID(b)), normalContent: content.lowercased())
     case "week":
         return Interpretation(tag: tag, typed: .week(try parseWeek(b, withDay: false)), normalContent: content)
+    case "embedding":
+        let (emb, normal) = try parseEmbedding(b)
+        return Interpretation(tag: tag, typed: .embedding(emb), normalContent: normal)
     default:
         return Interpretation(tag: tag, typed: .week(try parseWeek(b, withDay: true)), normalContent: content)
     }
@@ -383,4 +441,306 @@ private func parseWeek(_ b: [UInt8], withDay: Bool) throws -> GramWeek {
         guard (1...7).contains(day!) else { throw range("the weekday is 1 to 7") }
     }
     return GramWeek(year: year, week: week, day: day)
+}
+
+// MARK: - embedding (ADR-008)
+
+private let maxBase64Chars = 11_190_284
+private let maxDecodedBytes = 8_392_712
+private let maxHeaderBytes = 4_096
+
+private func b64Val(_ c: UInt8) -> Int {
+    switch c {
+    case 0x41...0x5A: return Int(c - 0x41)
+    case 0x61...0x7A: return Int(c - 0x61) + 26
+    case 0x30...0x39: return Int(c - 0x30) + 52
+    case 0x2B: return 62
+    case 0x2F: return 63
+    default: return -1
+    }
+}
+
+private func decodeStrictBase64(_ raw: [UInt8]) throws -> [UInt8] {
+    guard !raw.isEmpty else { throw form("empty Base64 content") }
+    guard raw.count % 4 == 0 else { throw form("Base64 length must be a multiple of 4") }
+    let padCount: Int
+    if raw.count >= 2 && raw[raw.count - 2] == 0x3D && raw[raw.count - 1] == 0x3D {
+        padCount = 2
+    } else if raw[raw.count - 1] == 0x3D {
+        padCount = 1
+    } else {
+        padCount = 0
+    }
+    let dataEnd = raw.count - padCount
+    for i in 0..<dataEnd {
+        if b64Val(raw[i]) < 0 {
+            throw form("invalid Base64 byte at index \(i)")
+        }
+    }
+    if padCount == 1 {
+        if (b64Val(raw[raw.count - 2]) & 0x03) != 0 {
+            throw form("non-canonical Base64 pad bits")
+        }
+    } else if padCount == 2 {
+        if (b64Val(raw[raw.count - 3]) & 0x0F) != 0 {
+            throw form("non-canonical Base64 pad bits")
+        }
+    }
+
+    let decodedLen = (raw.count / 4) * 3 - padCount
+    if raw.count > maxBase64Chars || decodedLen > maxDecodedBytes {
+        throw range("embedding exceeds maximum decoded size of \(maxDecodedBytes) bytes")
+    }
+
+    var out: [UInt8] = []
+    out.reserveCapacity(decodedLen)
+    var i = 0
+    while i < raw.count {
+        let a = b64Val(raw[i])
+        let b = b64Val(raw[i + 1])
+        out.append(UInt8((a << 2) | (b >> 4)))
+        if raw[i + 2] != 0x3D {
+            let c = b64Val(raw[i + 2])
+            out.append(UInt8(((b << 4) | (c >> 2)) & 0xFF))
+            if raw[i + 3] != 0x3D {
+                let d = b64Val(raw[i + 3])
+                out.append(UInt8(((c << 6) | d) & 0xFF))
+            }
+        }
+        i += 4
+    }
+    return out
+}
+
+private func encodeEmbeddingNormal(_ dtype: GramEmbeddingDtype, _ dimension: Int, _ payload: Data) -> String {
+    let json = "{\"embedding\":{\"dtype\":\"\(dtype.rawValue)\",\"shape\":[\(dimension)],\"data_offsets\":[0,\(payload.count)]}}"
+    let jsonBytes = Array(json.utf8)
+    let pad = (8 - (jsonBytes.count % 8)) % 8
+    let headerLen = jsonBytes.count + pad
+    var buf = Data(capacity: 8 + headerLen + payload.count)
+    var leLen = UInt64(headerLen).littleEndian
+    withUnsafeBytes(of: &leLen) { buf.append(contentsOf: $0) }
+    buf.append(contentsOf: jsonBytes)
+    if pad > 0 {
+        buf.append(contentsOf: repeatElement(UInt8(0x20), count: pad))
+    }
+    buf.append(payload)
+    return buf.base64EncodedString()
+}
+
+private struct HeaderParser {
+    let bytes: [UInt8]
+    var pos: Int = 0
+
+    mutating func skipWS() {
+        while pos < bytes.count {
+            let c = bytes[pos]
+            if c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0D {
+                pos += 1
+            } else {
+                break
+            }
+        }
+    }
+
+    mutating func expect(_ want: UInt8) throws {
+        skipWS()
+        guard pos < bytes.count, bytes[pos] == want else {
+            throw form("expected '\(Character(UnicodeScalar(want)))' in JSON header")
+        }
+        pos += 1
+    }
+
+    mutating func parseHex4() throws -> UInt16 {
+        guard pos + 4 <= bytes.count else { throw form("short \\uXXXX escape in JSON string") }
+        let slice = String(decoding: bytes[pos..<(pos + 4)], as: UTF8.self)
+        guard let v = UInt16(slice, radix: 16) else { throw form("invalid \\uXXXX escape in JSON string") }
+        pos += 4
+        return v
+    }
+
+    mutating func parseString() throws -> String {
+        skipWS()
+        guard pos < bytes.count, bytes[pos] == 0x22 else { throw form("expected JSON string") }
+        pos += 1
+        var scalars: [UnicodeScalar] = []
+        while pos < bytes.count {
+            let b = bytes[pos]
+            if b == 0x22 {
+                pos += 1
+                var s = String()
+                s.unicodeScalars.append(contentsOf: scalars)
+                return s
+            }
+            if b < 0x20 {
+                throw form("unescaped control character in JSON string")
+            }
+            if b == 0x5C {
+                pos += 1
+                guard pos < bytes.count else { throw form("unterminated JSON escape") }
+                let esc = bytes[pos]
+                pos += 1
+                switch esc {
+                case 0x22: scalars.append("\"")
+                case 0x5C: scalars.append("\\")
+                case 0x2F: scalars.append("/")
+                case 0x62: scalars.append("\u{0008}")
+                case 0x66: scalars.append("\u{000C}")
+                case 0x6E: scalars.append("\n")
+                case 0x72: scalars.append("\r")
+                case 0x74: scalars.append("\t")
+                case 0x75:
+                    let code = try parseHex4()
+                    if (0xD800...0xDBFF).contains(code) {
+                        guard pos + 2 <= bytes.count, bytes[pos] == 0x5C, bytes[pos + 1] == 0x75 else {
+                            throw form("unpaired UTF-16 high surrogate in JSON string")
+                        }
+                        pos += 2
+                        let low = try parseHex4()
+                        guard (0xDC00...0xDFFF).contains(low) else {
+                            throw form("invalid UTF-16 low surrogate in JSON string")
+                        }
+                        let cp = 0x10000 + ((UInt32(code - 0xD800) << 10) | UInt32(low - 0xDC00))
+                        guard let scalar = UnicodeScalar(cp) else { throw form("invalid Unicode scalar") }
+                        scalars.append(scalar)
+                    } else if (0xDC00...0xDFFF).contains(code) {
+                        throw form("unpaired UTF-16 low surrogate in JSON string")
+                    } else {
+                        guard let scalar = UnicodeScalar(UInt32(code)) else { throw form("invalid Unicode scalar") }
+                        scalars.append(scalar)
+                    }
+                default:
+                    throw form("invalid JSON escape sequence")
+                }
+            } else {
+                var iter = UTF8()
+                var slice = bytes[pos...].makeIterator()
+                switch iter.decode(&slice) {
+                case .scalarValue(let scalar):
+                    scalars.append(scalar)
+                    pos += UTF8.width(scalar)
+                case .emptyInput, .error:
+                    throw form("invalid UTF-8 in JSON string")
+                }
+            }
+        }
+        throw form("unterminated JSON string")
+    }
+
+    mutating func parsePlainUintToken() throws -> String {
+        skipWS()
+        let start = pos
+        while pos < bytes.count, isDigit(bytes[pos]) {
+            pos += 1
+        }
+        guard pos > start else { throw form("expected plain base-10 integer") }
+        if pos - start > 1 && bytes[start] == 0x30 {
+            throw form("leading zero in JSON integer")
+        }
+        if pos < bytes.count && (bytes[pos] == 0x2E || bytes[pos] == 0x65 || bytes[pos] == 0x45) {
+            throw form("non-integer JSON number")
+        }
+        return String(decoding: bytes[start..<pos], as: UTF8.self)
+    }
+
+    mutating func parseShape() throws -> (UInt64, Bool) {
+        try expect(0x5B)
+        let tok = try parsePlainUintToken()
+        try expect(0x5D)
+        if let n = UInt64(tok) {
+            return (n, false)
+        }
+        return (0, true)
+    }
+
+    mutating func parseDataOffsets() throws -> (UInt64, UInt64) {
+        try expect(0x5B)
+        let t0 = try parsePlainUintToken()
+        try expect(0x2C)
+        let t1 = try parsePlainUintToken()
+        try expect(0x5D)
+        guard let a = UInt64(t0), let b = UInt64(t1) else {
+            throw form("data_offsets exceeds 64 unsigned bits")
+        }
+        return (a, b)
+    }
+
+    mutating func parseHeader() throws -> (String, UInt64, Bool, UInt64, UInt64) {
+        try expect(0x7B)
+        let topKey = try parseString()
+        guard topKey == "embedding" else { throw form("unexpected top-level key \"\(topKey)\"") }
+        try expect(0x3A)
+        try expect(0x7B)
+
+        var dtype: String?
+        var shapeVal: (UInt64, Bool)?
+        var offsets: (UInt64, UInt64)?
+
+        for idx in 0..<3 {
+            if idx > 0 { try expect(0x2C) }
+            let key = try parseString()
+            try expect(0x3A)
+            switch key {
+            case "dtype":
+                if dtype != nil { throw form("duplicate key \"dtype\"") }
+                dtype = try parseString()
+            case "shape":
+                if shapeVal != nil { throw form("duplicate key \"shape\"") }
+                shapeVal = try parseShape()
+            case "data_offsets":
+                if offsets != nil { throw form("duplicate key \"data_offsets\"") }
+                offsets = try parseDataOffsets()
+            default:
+                throw form("unexpected tensor key \"\(key)\"")
+            }
+        }
+        try expect(0x7D)
+        try expect(0x7D)
+        skipWS()
+        guard pos == bytes.count else { throw form("trailing bytes in SafeTensors JSON header") }
+        return (dtype!, shapeVal!.0, shapeVal!.1, offsets!.0, offsets!.1)
+    }
+}
+
+private func parseEmbedding(_ b: [UInt8]) throws -> (GramEmbedding, String) {
+    let decoded = try decodeStrictBase64(b)
+    guard decoded.count >= 8 else { throw form("SafeTensors buffer shorter than 8 bytes") }
+    var headerLenU64: UInt64 = 0
+    for i in 0..<8 {
+        headerLenU64 |= UInt64(decoded[i]) << (UInt64(i) * 8)
+    }
+    let remaining = UInt64(decoded.count - 8)
+    guard headerLenU64 <= UInt64(maxHeaderBytes), headerLenU64 <= remaining else {
+        throw form("SafeTensors header length exceeds 4,096 or buffer")
+    }
+    let headerLen = Int(headerLenU64)
+    let headerBytes = Array(decoded[8..<(8 + headerLen)])
+    guard String(bytes: headerBytes, encoding: .utf8) != nil else {
+        throw form("SafeTensors header is not valid UTF-8")
+    }
+    var parser = HeaderParser(bytes: headerBytes)
+    let (dtypeRaw, shapeDim, shapeOverflow, off0, off1) = try parser.parseHeader()
+
+    guard let dtype = GramEmbeddingDtype(rawValue: dtypeRaw) else {
+        throw unsupported("unsupported embedding dtype \"\(dtypeRaw)\"")
+    }
+    if shapeOverflow {
+        throw range("embedding dimension exceeds 64 unsigned bits")
+    }
+    guard shapeDim >= 1, shapeDim <= UInt64(maxEmbeddingDimension) else {
+        throw range("embedding dimension \(shapeDim) must be between 1 and \(maxEmbeddingDimension)")
+    }
+    let dimension = Int(shapeDim)
+    let expectedBytes = dimension * dtype.width
+    guard off0 == 0, off1 == UInt64(expectedBytes) else {
+        throw form("data_offsets [\(off0), \(off1)] does not match [0, \(expectedBytes)]")
+    }
+    let payloadStart = 8 + headerLen
+    guard decoded.count == payloadStart + expectedBytes else {
+        throw form("payload length \(decoded.count - payloadStart) does not match expected \(expectedBytes)")
+    }
+    let payload = Data(decoded[payloadStart...])
+    let emb = GramEmbedding(validated: dtype, dimension: dimension, bytes: payload)
+    let normal = encodeEmbeddingNormal(dtype, dimension, payload)
+    return (emb, normal)
 }

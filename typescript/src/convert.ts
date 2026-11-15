@@ -11,6 +11,7 @@ import {
 } from "./diagnostic.ts";
 import * as v from "./value.ts";
 import type { Value } from "./value.ts";
+import { Embedding } from "./tags.ts";
 
 /** A tagged string: a tag and a content string. */
 export class Tagged {
@@ -51,6 +52,7 @@ export type Native =
   | Tagged
   | Range
   | Measurement
+  | Embedding
   | readonly Native[]
   | { [key: string]: Native };
 
@@ -185,6 +187,7 @@ function fromNativeAt(x: unknown, path: PathSegment[]): Result<Value> {
   if (typeof x === "boolean") return ok(v.boolean(x));
   if (typeof x === "string") return withPath(v.string(x));
   if (x instanceof Tagged) return withPath(v.tagged(x.tag, x.content));
+  if (x instanceof Embedding) return ok(x.toValue());
   if (x instanceof Measurement) {
     const mag = numberToValue(x.magnitude, [...path, "magnitude"]);
     if (!mag.ok) return mag;
