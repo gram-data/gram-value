@@ -32,6 +32,7 @@
 (uuid:Tag)
 (week:Tag)
 (weekDate:Tag)
+(embedding:Tag)
 
 // Mapping entries (ADR-006). Loss kinds, entry classes and the languages a case may name.
 (precision:Loss)

@@ -62,3 +62,10 @@
 (tag-weekdate:TagCase {name: "a week date", value: weekDate`2024W35-5`, outcome: accepted, interpreted: "2024W35-5"})
 (tag-weekdate-8:TagCase {name: "weekday 8", value: weekDate`2024W35-8`, outcome: rejected, diagnostic: out-of-range})
 (tag-weekdate-0:TagCase {name: "weekday 0", value: weekDate`2024W35-0`, outcome: rejected, diagnostic: out-of-range})
+
+// embedding (ADR-008). These three are the output of the reference SafeTensors writer (the `safetensors` Python
+// package 0.8.0, `safetensors.numpy.save({"embedding": array})`), so each normal content string equals its input:
+// F32 [1.0, -2.0], F64 [0.0, 1.0, 2.0], F16 [0.0, 1.0, 2.0, 3.0, 4.0].
+(tag-embedding-ref-f32:TagCase {name: "reference writer output, F32", value: embedding`QAAAAAAAAAB7ImVtYmVkZGluZyI6eyJkdHlwZSI6IkYzMiIsInNoYXBlIjpbMl0sImRhdGFfb2Zmc2V0cyI6WzAsOF19fSAgAACAPwAAAMA=`, outcome: accepted, interpreted: "QAAAAAAAAAB7ImVtYmVkZGluZyI6eyJkdHlwZSI6IkYzMiIsInNoYXBlIjpbMl0sImRhdGFfb2Zmc2V0cyI6WzAsOF19fSAgAACAPwAAAMA="})
+(tag-embedding-ref-f64:TagCase {name: "reference writer output, F64", value: embedding`QAAAAAAAAAB7ImVtYmVkZGluZyI6eyJkdHlwZSI6IkY2NCIsInNoYXBlIjpbM10sImRhdGFfb2Zmc2V0cyI6WzAsMjRdfX0gAAAAAAAAAAAAAAAAAADwPwAAAAAAAABA`, outcome: accepted, interpreted: "QAAAAAAAAAB7ImVtYmVkZGluZyI6eyJkdHlwZSI6IkY2NCIsInNoYXBlIjpbM10sImRhdGFfb2Zmc2V0cyI6WzAsMjRdfX0gAAAAAAAAAAAAAAAAAADwPwAAAAAAAABA"})
+(tag-embedding-ref-f16:TagCase {name: "reference writer output, F16", value: embedding`QAAAAAAAAAB7ImVtYmVkZGluZyI6eyJkdHlwZSI6IkYxNiIsInNoYXBlIjpbNV0sImRhdGFfb2Zmc2V0cyI6WzAsMTBdfX0gAAAAPABAAEIARA==`, outcome: accepted, interpreted: "QAAAAAAAAAB7ImVtYmVkZGluZyI6eyJkdHlwZSI6IkYxNiIsInNoYXBlIjpbNV0sImRhdGFfb2Zmc2V0cyI6WzAsMTBdfX0gAAAAPABAAEIARA=="})
