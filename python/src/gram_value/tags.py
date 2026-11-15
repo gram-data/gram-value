@@ -95,7 +95,11 @@ class EmbeddingDtype(str, Enum):
 
     @property
     def width(self) -> int:
-        return 2 if self in (EmbeddingDtype.F16, EmbeddingDtype.BF16) else (4 if self is EmbeddingDtype.F32 else 8)
+        return (
+            2
+            if self in (EmbeddingDtype.F16, EmbeddingDtype.BF16)
+            else (4 if self is EmbeddingDtype.F32 else 8)
+        )
 
     @property
     def safetensors_name(self) -> str:
@@ -113,7 +117,12 @@ class Embedding:
 
     @classmethod
     def create(cls, dtype: EmbeddingDtype, dimension: int, data: bytes) -> Result[Embedding]:
-        if isinstance(dimension, bool) or not isinstance(dimension, int) or dimension <= 0 or dimension > MAX_EMBEDDING_DIMENSION:
+        if (
+            isinstance(dimension, bool)
+            or not isinstance(dimension, int)
+            or dimension <= 0
+            or dimension > MAX_EMBEDDING_DIMENSION
+        ):
             return fail(
                 diagnostic(
                     "out-of-range",
@@ -125,7 +134,8 @@ class Embedding:
             return fail(
                 diagnostic(
                     "invalid-form",
-                    f"embedding: expected {expected} payload bytes for {dimension} {dtype.value} elements, got {len(data)}",
+                    f"embedding: expected {expected} payload bytes for {dimension} "
+                    f"{dtype.value} elements, got {len(data)}",
                 )
             )
         return ok(cls(dtype=dtype, dimension=dimension, bytes=bytes(data)))
