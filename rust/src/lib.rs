@@ -24,5 +24,6 @@ mod value;
 
 pub use convert::{Diagnostics, FromValue};
 pub use diagnostic::{Diagnostic, PathSegment};
+pub use tags::{Embedding, EmbeddingDtype};
 pub use text::{string_text, Context};
 pub use value::{BigDecimal, BigInteger, Decimal, Kind, Map, Measurement, Range, Tagged, Value};

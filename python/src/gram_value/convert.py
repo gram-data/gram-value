@@ -10,6 +10,7 @@ from typing import Any
 
 from . import value as v
 from .diagnostic import Diagnostic, PathSegment, Result, diagnostic, fail, ok, under
+from .tags import Embedding
 from .value import Value
 
 
@@ -133,6 +134,8 @@ def _from_native(x: Any, path: list[PathSegment]) -> Result[Value]:
         return with_path(v.string(x))
     if isinstance(x, Tagged):
         return with_path(v.tagged(x.tag, x.content))
+    if isinstance(x, Embedding):
+        return ok(x.to_value())
     if isinstance(x, Measurement):
         mag = _number_to_value(x.magnitude, [*path, "magnitude"])
         if not mag.ok:

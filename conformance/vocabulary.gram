@@ -79,6 +79,7 @@
 (Point:RustNative:TypeScriptNative:PythonNative:GoNative:SwiftNative)
 (Uuid:RustNative:TypeScriptNative:PythonNative)
 (Week:RustNative:TypeScriptNative:PythonNative:GoNative:SwiftNative)
+(Embedding:RustNative:TypeScriptNative:PythonNative:GoNative:SwiftNative)
 
 // TypeScript native type names (`none`, `string`, `boolean` and the package types are shared above).
 (number:TypeScriptNative)

@@ -1,9 +1,11 @@
-"""Interpretation of the ten known tags (spec/tags.md, ADR-004)."""
+"""Interpretation of the eleven known tags (spec/tags.md, ADR-004, ADR-008)."""
 
 from __future__ import annotations
 
+import base64
 import re
 from dataclasses import dataclass
+from enum import Enum
 from typing import Literal
 
 from .diagnostic import Result, diagnostic, fail, ok
@@ -20,6 +22,7 @@ KNOWN_TAGS = (
     "uuid",
     "week",
     "weekDate",
+    "embedding",
 )
 
 
@@ -84,7 +87,57 @@ class Week:
     day: int | None = None
 
 
-Typed = Date | Time | DateTime | Duration | Point | Uuid | Week
+class EmbeddingDtype(str, Enum):
+    F16 = "f16"
+    BF16 = "bf16"
+    F32 = "f32"
+    F64 = "f64"
+
+    @property
+    def width(self) -> int:
+        return 2 if self in (EmbeddingDtype.F16, EmbeddingDtype.BF16) else (4 if self is EmbeddingDtype.F32 else 8)
+
+    @property
+    def safetensors_name(self) -> str:
+        return self.value.upper()
+
+
+MAX_EMBEDDING_DIMENSION = 1_048_576
+
+
+@dataclass(frozen=True)
+class Embedding:
+    dtype: EmbeddingDtype
+    dimension: int
+    bytes: bytes
+
+    @classmethod
+    def create(cls, dtype: EmbeddingDtype, dimension: int, data: bytes) -> Result[Embedding]:
+        if isinstance(dimension, bool) or not isinstance(dimension, int) or dimension <= 0 or dimension > MAX_EMBEDDING_DIMENSION:
+            return fail(
+                diagnostic(
+                    "out-of-range",
+                    f"embedding: dimension {dimension} must be between 1 and {MAX_EMBEDDING_DIMENSION}",
+                )
+            )
+        expected = dimension * dtype.width
+        if len(data) != expected:
+            return fail(
+                diagnostic(
+                    "invalid-form",
+                    f"embedding: expected {expected} payload bytes for {dimension} {dtype.value} elements, got {len(data)}",
+                )
+            )
+        return ok(cls(dtype=dtype, dimension=dimension, bytes=bytes(data)))
+
+    def to_normal_content(self) -> str:
+        return _encode_embedding_normal(self.dtype, self.dimension, self.bytes)
+
+    def to_value(self) -> Value:
+        return tagged("embedding", self.to_normal_content()).unwrap()
+
+
+Typed = Date | Time | DateTime | Duration | Point | Uuid | Week | Embedding
 
 
 @dataclass(frozen=True)
@@ -102,7 +155,7 @@ class Interpretation:
 
 
 class _Fault(Exception):
-    def __init__(self, code: Literal["invalid-form", "out-of-range"], message: str) -> None:
+    def __init__(self, code: Literal["invalid-form", "out-of-range", "unsupported"], message: str) -> None:
         super().__init__(message)
         self.code = code
 
@@ -113,6 +166,10 @@ def _form(message: str) -> _Fault:
 
 def _range(message: str) -> _Fault:
     return _Fault("out-of-range", message)
+
+
+def _unsupported(message: str) -> _Fault:
+    return _Fault("unsupported", message)
 
 
 def interpret(value: Value) -> Result[Interpretation | None]:
@@ -151,6 +208,9 @@ def _run(tag: str, content: str) -> Interpretation:
         return Interpretation(tag, p, normal)
     if tag == "uuid":
         return Interpretation(tag, _parse_uuid(content), content.lower())
+    if tag == "embedding":
+        emb, normal = _parse_embedding(content)
+        return Interpretation(tag, emb, normal)
     return Interpretation(tag, _parse_week(content, tag == "weekDate"), content)
 
 
@@ -382,3 +442,245 @@ def _parse_week(s: str, with_day: bool) -> Week:
             raise _range("the weekday is 1 to 7")
         return Week(year, week, day)
     return Week(year, week)
+
+
+# ---- embedding (ADR-008) --------------------------------------------------------------------
+
+_MAX_BASE64_CHARS = 11_190_284
+_MAX_DECODED_BYTES = 8_392_712
+_MAX_HEADER_BYTES = 4_096
+_B64_ALPHABET = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+_B64_LOOKUP = {b: i for i, b in enumerate(_B64_ALPHABET)}
+_U64_MAX = (1 << 64) - 1
+
+
+def _decode_strict_base64(content: str) -> bytes:
+    try:
+        raw = content.encode("ascii")
+    except UnicodeEncodeError as exc:
+        raise _form("non-ASCII character in Base64 content") from exc
+    if not raw:
+        raise _form("empty Base64 content")
+    if len(raw) % 4 != 0:
+        raise _form("Base64 length must be a multiple of 4")
+    if raw.endswith(b"=="):
+        pad_count = 2
+    elif raw.endswith(b"="):
+        pad_count = 1
+    else:
+        pad_count = 0
+    data_end = len(raw) - pad_count
+    for i, b in enumerate(raw[:data_end]):
+        if b not in _B64_LOOKUP:
+            raise _form(f"invalid Base64 byte at index {i}")
+    if pad_count == 1:
+        if (_B64_LOOKUP[raw[-2]] & 0x03) != 0:
+            raise _form("non-canonical Base64 pad bits")
+    elif pad_count == 2:
+        if (_B64_LOOKUP[raw[-3]] & 0x0F) != 0:
+            raise _form("non-canonical Base64 pad bits")
+
+    decoded_len = (len(raw) // 4) * 3 - pad_count
+    if len(raw) > _MAX_BASE64_CHARS or decoded_len > _MAX_DECODED_BYTES:
+        raise _range(f"embedding exceeds maximum decoded size of {_MAX_DECODED_BYTES} bytes")
+    return base64.b64decode(raw, validate=True)
+
+
+def _encode_embedding_normal(dtype: EmbeddingDtype, dimension: int, payload: bytes) -> str:
+    json_str = (
+        f'{{"embedding":{{"dtype":"{dtype.safetensors_name}",'
+        f'"shape":[{dimension}],"data_offsets":[0,{len(payload)}]}}}}'
+    )
+    json_bytes = json_str.encode("utf-8")
+    pad = (8 - (len(json_bytes) % 8)) % 8
+    header_len = len(json_bytes) + pad
+    buf = header_len.to_bytes(8, "little") + json_bytes + (b" " * pad) + payload
+    return base64.b64encode(buf).decode("ascii")
+
+
+class _HeaderParser:
+    def __init__(self, s: str) -> None:
+        self.s = s
+        self.pos = 0
+
+    def _skip_ws(self) -> None:
+        while self.pos < len(self.s) and self.s[self.pos] in (" ", "\t", "\n", "\r"):
+            self.pos += 1
+
+    def _expect(self, ch: str) -> None:
+        self._skip_ws()
+        if self.pos >= len(self.s) or self.s[self.pos] != ch:
+            raise _form(f"expected '{ch}' in JSON header")
+        self.pos += 1
+
+    def _parse_hex4(self) -> int:
+        if self.pos + 4 > len(self.s):
+            raise _form("short \\uXXXX escape in JSON string")
+        hex_str = self.s[self.pos : self.pos + 4]
+        if not re.fullmatch(r"[0-9a-fA-F]{4}", hex_str):
+            raise _form("invalid \\uXXXX escape in JSON string")
+        self.pos += 4
+        return int(hex_str, 16)
+
+    def _parse_string(self) -> str:
+        self._skip_ws()
+        if self.pos >= len(self.s) or self.s[self.pos] != '"':
+            raise _form("expected JSON string")
+        self.pos += 1
+        out: list[str] = []
+        escapes = {
+            '"': '"',
+            "\\": "\\",
+            "/": "/",
+            "b": "\b",
+            "f": "\f",
+            "n": "\n",
+            "r": "\r",
+            "t": "\t",
+        }
+        while self.pos < len(self.s):
+            ch = self.s[self.pos]
+            if ch == '"':
+                self.pos += 1
+                return "".join(out)
+            if ord(ch) < 0x20:
+                raise _form("unescaped control character in JSON string")
+            if ch == "\\":
+                self.pos += 1
+                if self.pos >= len(self.s):
+                    raise _form("unterminated JSON escape")
+                esc = self.s[self.pos]
+                self.pos += 1
+                if esc in escapes:
+                    out.append(escapes[esc])
+                elif esc == "u":
+                    code = self._parse_hex4()
+                    if 0xD800 <= code <= 0xDBFF:
+                        if self.s[self.pos : self.pos + 2] != "\\u":
+                            raise _form("unpaired UTF-16 high surrogate in JSON string")
+                        self.pos += 2
+                        low = self._parse_hex4()
+                        if not (0xDC00 <= low <= 0xDFFF):
+                            raise _form("invalid UTF-16 low surrogate in JSON string")
+                        cp = 0x10000 + (((code - 0xD800) << 10) | (low - 0xDC00))
+                        out.append(chr(cp))
+                    elif 0xDC00 <= code <= 0xDFFF:
+                        raise _form("unpaired UTF-16 low surrogate in JSON string")
+                    else:
+                        out.append(chr(code))
+                else:
+                    raise _form("invalid JSON escape sequence")
+            else:
+                out.append(ch)
+                self.pos += 1
+        raise _form("unterminated JSON string")
+
+    def _parse_plain_uint_token(self) -> int:
+        self._skip_ws()
+        start = self.pos
+        while self.pos < len(self.s) and "0" <= self.s[self.pos] <= "9":
+            self.pos += 1
+        if self.pos == start:
+            raise _form("expected plain base-10 integer")
+        if self.pos - start > 1 and self.s[start] == "0":
+            raise _form("leading zero in JSON integer")
+        if self.pos < len(self.s) and self.s[self.pos] in (".", "e", "E"):
+            raise _form("non-integer JSON number")
+        return int(self.s[start : self.pos])
+
+    def _parse_shape(self) -> int:
+        self._expect("[")
+        n = self._parse_plain_uint_token()
+        self._expect("]")
+        return n
+
+    def _parse_data_offsets(self) -> tuple[int, int]:
+        self._expect("[")
+        a = self._parse_plain_uint_token()
+        self._expect(",")
+        b = self._parse_plain_uint_token()
+        self._expect("]")
+        if a > _U64_MAX or b > _U64_MAX:
+            raise _form("data_offsets exceeds 64 unsigned bits")
+        return (a, b)
+
+    def parse_header(self) -> tuple[str, int, tuple[int, int]]:
+        self._expect("{")
+        top_key = self._parse_string()
+        if top_key != "embedding":
+            raise _form(f'unexpected top-level key "{top_key}"')
+        self._expect(":")
+        self._expect("{")
+
+        dtype: str | None = None
+        shape_dim: int | None = None
+        offsets: tuple[int, int] | None = None
+
+        for idx in range(3):
+            if idx > 0:
+                self._expect(",")
+            key = self._parse_string()
+            self._expect(":")
+            if key == "dtype":
+                if dtype is not None:
+                    raise _form('duplicate key "dtype"')
+                dtype = self._parse_string()
+            elif key == "shape":
+                if shape_dim is not None:
+                    raise _form('duplicate key "shape"')
+                shape_dim = self._parse_shape()
+            elif key == "data_offsets":
+                if offsets is not None:
+                    raise _form('duplicate key "data_offsets"')
+                offsets = self._parse_data_offsets()
+            else:
+                raise _form(f'unexpected tensor key "{key}"')
+        self._expect("}")
+        self._expect("}")
+        self._skip_ws()
+        if self.pos != len(self.s):
+            raise _form("trailing bytes in SafeTensors JSON header")
+        assert dtype is not None and shape_dim is not None and offsets is not None
+        return (dtype, shape_dim, offsets)
+
+
+def _parse_embedding(content: str) -> tuple[Embedding, str]:
+    decoded = _decode_strict_base64(content)
+    if len(decoded) < 8:
+        raise _form("SafeTensors buffer shorter than 8 bytes")
+    header_len = int.from_bytes(decoded[:8], "little")
+    if header_len > _MAX_HEADER_BYTES or header_len > len(decoded) - 8:
+        raise _form("SafeTensors header length exceeds 4,096 or buffer")
+    try:
+        header_str = decoded[8 : 8 + header_len].decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise _form("SafeTensors header is not valid UTF-8") from exc
+
+    dtype_raw, shape_dim, offsets = _HeaderParser(header_str).parse_header()
+
+    dtype_map = {
+        "F16": EmbeddingDtype.F16,
+        "BF16": EmbeddingDtype.BF16,
+        "F32": EmbeddingDtype.F32,
+        "F64": EmbeddingDtype.F64,
+    }
+    dtype = dtype_map.get(dtype_raw)
+    if dtype is None:
+        raise _unsupported(f'unsupported embedding dtype "{dtype_raw}"')
+
+    if shape_dim > _U64_MAX:
+        raise _range("embedding dimension exceeds 64 unsigned bits")
+    if shape_dim == 0 or shape_dim > MAX_EMBEDDING_DIMENSION:
+        raise _range(f"embedding dimension {shape_dim} must be between 1 and {MAX_EMBEDDING_DIMENSION}")
+
+    expected_bytes = shape_dim * dtype.width
+    if offsets != (0, expected_bytes):
+        raise _form(f"data_offsets {list(offsets)} does not match [0, {expected_bytes}]")
+    payload_start = 8 + header_len
+    if len(decoded) != payload_start + expected_bytes:
+        raise _form(f"payload length {len(decoded) - payload_start} does not match expected {expected_bytes}")
+
+    payload = decoded[payload_start:]
+    emb = Embedding(dtype=dtype, dimension=shape_dim, bytes=payload)
+    normal = _encode_embedding_normal(dtype, shape_dim, payload)
+    return (emb, normal)

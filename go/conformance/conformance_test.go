@@ -309,7 +309,7 @@ func loadValueFromText(text string) gv.Value {
 	return found
 }
 
-var tagForNative = map[string]string{"Date": "date", "Time": "time", "DateTime": "datetime", "Duration": "duration", "Point": "point", "UUID": "uuid", "Week": "week"}
+var tagForNative = map[string]string{"Date": "date", "Time": "time", "DateTime": "datetime", "Duration": "duration", "Point": "point", "UUID": "uuid", "Week": "week", "Embedding": "embedding"}
 
 func nativeTypeName(n any) string {
 	switch n.(type) {

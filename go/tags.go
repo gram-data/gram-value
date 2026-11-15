@@ -1,16 +1,21 @@
 package gramvalue
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"math"
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf16"
+	"unicode/utf8"
 )
 
-// KnownTags are the ten tags whose content has a standard form (ADR-004).
-var KnownTags = []string{"date", "time", "localtime", "datetime", "localdatetime", "duration", "point", "uuid", "week", "weekDate"}
+// KnownTags are the eleven tags whose content has a standard form (ADR-004, ADR-008).
+var KnownTags = []string{"date", "time", "localtime", "datetime", "localdatetime", "duration", "point", "uuid", "week", "weekDate", "embedding"}
 
 // Date is a calendar date in the proleptic Gregorian calendar.
 type Date struct {
@@ -64,6 +69,89 @@ type Week struct {
 	Day  *int
 }
 
+// EmbeddingDtype is the floating-point element encoding of an Embedding.
+type EmbeddingDtype string
+
+const (
+	DtypeF16  EmbeddingDtype = "F16"
+	DtypeBF16 EmbeddingDtype = "BF16"
+	DtypeF32  EmbeddingDtype = "F32"
+	DtypeF64  EmbeddingDtype = "F64"
+)
+
+// Width returns the element byte width.
+func (d EmbeddingDtype) Width() int {
+	switch d {
+	case DtypeF16, DtypeBF16:
+		return 2
+	case DtypeF32:
+		return 4
+	case DtypeF64:
+		return 8
+	default:
+		return 0
+	}
+}
+
+// MaxEmbeddingDimension is the maximum vector dimension (2^20, ADR-008 2.4).
+const MaxEmbeddingDimension = 1_048_576
+
+// Embedding is a rank-one dense floating-point tensor carried by an `embedding` tag (ADR-008).
+type Embedding struct {
+	dtype     EmbeddingDtype
+	dimension int
+	payload   []byte
+}
+
+// NewEmbedding constructs an Embedding after validating dtype, dimension, and payload byte length.
+func NewEmbedding(dtype EmbeddingDtype, dimension int, payload []byte) (Embedding, error) {
+	if dtype.Width() == 0 {
+		return Embedding{}, diag("unsupported", fmt.Sprintf("embedding: unsupported dtype %q", dtype))
+	}
+	if dimension <= 0 || dimension > MaxEmbeddingDimension {
+		return Embedding{}, diag("out-of-range", fmt.Sprintf("embedding: dimension %d must be between 1 and %d", dimension, MaxEmbeddingDimension))
+	}
+	expected := dimension * dtype.Width()
+	if len(payload) != expected {
+		return Embedding{}, diag("invalid-form", fmt.Sprintf("embedding: expected %d payload bytes, got %d", expected, len(payload)))
+	}
+	cp := make([]byte, len(payload))
+	copy(cp, payload)
+	return Embedding{dtype: dtype, dimension: dimension, payload: cp}, nil
+}
+
+// Dtype returns the element encoding.
+func (e Embedding) Dtype() EmbeddingDtype { return e.dtype }
+
+// Dimension returns the vector dimension.
+func (e Embedding) Dimension() int { return e.dimension }
+
+// Bytes returns a copy of the raw little-endian payload bytes.
+func (e Embedding) Bytes() []byte {
+	cp := make([]byte, len(e.payload))
+	copy(cp, e.payload)
+	return cp
+}
+
+// Equals compares two embeddings by exact dtype, dimension, and payload bytes.
+func (e Embedding) Equals(other Embedding) bool {
+	return e.dtype == other.dtype && e.dimension == other.dimension && bytes.Equal(e.payload, other.payload)
+}
+
+// ToNormalContent returns the canonical Base64-encoded SafeTensors content string.
+func (e Embedding) ToNormalContent() string {
+	return encodeEmbeddingNormal(e.dtype, e.dimension, e.payload)
+}
+
+// ToValue returns a TaggedValue("embedding", ...) with the canonical normal content string.
+func (e Embedding) ToValue() Value {
+	v, err := NewTagged("embedding", e.ToNormalContent())
+	if err != nil {
+		panic("embedding is a valid symbol")
+	}
+	return v
+}
+
 // Interpretation is a successful interpretation of a known tag.
 type Interpretation struct {
 	// Tag is the tag that was interpreted.
@@ -87,6 +175,7 @@ type fault struct{ code, message string }
 
 func form(m string) fault            { return fault{"invalid-form", m} }
 func rng(m string) fault             { return fault{"out-of-range", m} }
+func unsup(m string) fault           { return fault{"unsupported", m} }
 func throw(f fault)                  { panic(f) }
 func formf(m string, a ...any) fault { return form(fmt.Sprintf(m, a...)) }
 
@@ -143,6 +232,9 @@ func run(tag, content string) *Interpretation {
 		return &Interpretation{tag, parseUUID(content), strings.ToLower(content)}
 	case "week":
 		return &Interpretation{tag, parseWeek(content, false), content}
+	case "embedding":
+		emb, normal := parseEmbedding(content)
+		return &Interpretation{tag, emb, normal}
 	}
 	return &Interpretation{tag, parseWeek(content, true), content}
 }
@@ -519,4 +611,341 @@ func parseWeek(s string, withDay bool) Week {
 		w.Day = &day
 	}
 	return w
+}
+
+// ---- embedding (ADR-008) --------------------------------------------------------------------
+
+const (
+	maxBase64Chars  = 11_190_284
+	maxDecodedBytes = 8_392_712
+	maxHeaderBytes  = 4_096
+)
+
+func b64Val(b byte) int {
+	switch {
+	case b >= 'A' && b <= 'Z':
+		return int(b - 'A')
+	case b >= 'a' && b <= 'z':
+		return int(b-'a') + 26
+	case b >= '0' && b <= '9':
+		return int(b-'0') + 52
+	case b == '+':
+		return 62
+	case b == '/':
+		return 63
+	default:
+		return -1
+	}
+}
+
+func decodeStrictBase64(content string) []byte {
+	n := len(content)
+	if n == 0 {
+		throw(form("empty Base64 content"))
+	}
+	if n%4 != 0 {
+		throw(form("Base64 length must be a multiple of 4"))
+	}
+	padCount := 0
+	if strings.HasSuffix(content, "==") {
+		padCount = 2
+	} else if strings.HasSuffix(content, "=") {
+		padCount = 1
+	}
+	dataEnd := n - padCount
+	for i := 0; i < dataEnd; i++ {
+		if b64Val(content[i]) < 0 {
+			throw(formf("invalid Base64 byte at index %d", i))
+		}
+	}
+	if padCount == 1 {
+		if (b64Val(content[n-2]) & 0x03) != 0 {
+			throw(form("non-canonical Base64 pad bits"))
+		}
+	} else if padCount == 2 {
+		if (b64Val(content[n-3]) & 0x0f) != 0 {
+			throw(form("non-canonical Base64 pad bits"))
+		}
+	}
+
+	decodedLen := (n/4)*3 - padCount
+	if n > maxBase64Chars || decodedLen > maxDecodedBytes {
+		throw(rng(fmt.Sprintf("embedding exceeds maximum decoded size of %d bytes", maxDecodedBytes)))
+	}
+	decoded, err := base64.StdEncoding.Strict().DecodeString(content)
+	if err != nil {
+		throw(form("malformed Base64 content"))
+	}
+	return decoded
+}
+
+func encodeEmbeddingNormal(dtype EmbeddingDtype, dimension int, payload []byte) string {
+	jsonStr := fmt.Sprintf(`{"embedding":{"dtype":"%s","shape":[%d],"data_offsets":[0,%d]}}`, dtype, dimension, len(payload))
+	pad := (8 - (len(jsonStr) % 8)) % 8
+	headerLen := len(jsonStr) + pad
+	buf := make([]byte, 8+headerLen+len(payload))
+	binary.LittleEndian.PutUint64(buf[:8], uint64(headerLen))
+	copy(buf[8:], jsonStr)
+	for i := 8 + len(jsonStr); i < 8+headerLen; i++ {
+		buf[i] = ' '
+	}
+	copy(buf[8+headerLen:], payload)
+	return base64.StdEncoding.EncodeToString(buf)
+}
+
+type headerParser struct {
+	s   string
+	pos int
+}
+
+func (p *headerParser) skipWS() {
+	for p.pos < len(p.s) {
+		switch p.s[p.pos] {
+		case ' ', '\t', '\n', '\r':
+			p.pos++
+		default:
+			return
+		}
+	}
+}
+
+func (p *headerParser) expect(ch byte) {
+	p.skipWS()
+	if p.pos >= len(p.s) || p.s[p.pos] != ch {
+		throw(formf("expected '%c' in JSON header", ch))
+	}
+	p.pos++
+}
+
+func (p *headerParser) parseHex4() rune {
+	if p.pos+4 > len(p.s) {
+		throw(form("short \\uXXXX escape in JSON string"))
+	}
+	v, err := strconv.ParseUint(p.s[p.pos:p.pos+4], 16, 16)
+	if err != nil {
+		throw(form("invalid \\uXXXX escape in JSON string"))
+	}
+	p.pos += 4
+	return rune(v)
+}
+
+func (p *headerParser) parseString() string {
+	p.skipWS()
+	if p.pos >= len(p.s) || p.s[p.pos] != '"' {
+		throw(form("expected JSON string"))
+	}
+	p.pos++
+	var out strings.Builder
+	for p.pos < len(p.s) {
+		b := p.s[p.pos]
+		if b == '"' {
+			p.pos++
+			return out.String()
+		}
+		if b < 0x20 {
+			throw(form("unescaped control character in JSON string"))
+		}
+		if b == '\\' {
+			p.pos++
+			if p.pos >= len(p.s) {
+				throw(form("unterminated JSON escape"))
+			}
+			esc := p.s[p.pos]
+			p.pos++
+			switch esc {
+			case '"', '\\', '/':
+				out.WriteByte(esc)
+			case 'b':
+				out.WriteByte('\b')
+			case 'f':
+				out.WriteByte('\f')
+			case 'n':
+				out.WriteByte('\n')
+			case 'r':
+				out.WriteByte('\r')
+			case 't':
+				out.WriteByte('\t')
+			case 'u':
+				r := p.parseHex4()
+				if r >= 0xD800 && r <= 0xDBFF {
+					if p.pos+2 > len(p.s) || p.s[p.pos] != '\\' || p.s[p.pos+1] != 'u' {
+						throw(form("unpaired UTF-16 high surrogate in JSON string"))
+					}
+					p.pos += 2
+					low := p.parseHex4()
+					if low < 0xDC00 || low > 0xDFFF {
+						throw(form("invalid UTF-16 low surrogate in JSON string"))
+					}
+					out.WriteRune(utf16.DecodeRune(r, low))
+				} else if r >= 0xDC00 && r <= 0xDFFF {
+					throw(form("unpaired UTF-16 low surrogate in JSON string"))
+				} else {
+					out.WriteRune(r)
+				}
+			default:
+				throw(form("invalid JSON escape sequence"))
+			}
+		} else {
+			r, size := utf8.DecodeRuneInString(p.s[p.pos:])
+			if r == utf8.RuneError && size == 1 {
+				throw(form("invalid UTF-8 in JSON string"))
+			}
+			out.WriteRune(r)
+			p.pos += size
+		}
+	}
+	throw(form("unterminated JSON string"))
+	return ""
+}
+
+func (p *headerParser) parsePlainUintToken() string {
+	p.skipWS()
+	start := p.pos
+	for p.pos < len(p.s) && p.s[p.pos] >= '0' && p.s[p.pos] <= '9' {
+		p.pos++
+	}
+	if p.pos == start {
+		throw(form("expected plain base-10 integer"))
+	}
+	if p.pos-start > 1 && p.s[start] == '0' {
+		throw(form("leading zero in JSON integer"))
+	}
+	if p.pos < len(p.s) && (p.s[p.pos] == '.' || p.s[p.pos] == 'e' || p.s[p.pos] == 'E') {
+		throw(form("non-integer JSON number"))
+	}
+	return p.s[start:p.pos]
+}
+
+func (p *headerParser) parseShape() (uint64, bool) {
+	p.expect('[')
+	tok := p.parsePlainUintToken()
+	p.expect(']')
+	n, err := strconv.ParseUint(tok, 10, 64)
+	if err != nil {
+		return 0, true
+	}
+	return n, false
+}
+
+func (p *headerParser) parseDataOffsets() (uint64, uint64) {
+	p.expect('[')
+	t0 := p.parsePlainUintToken()
+	p.expect(',')
+	t1 := p.parsePlainUintToken()
+	p.expect(']')
+	a, err0 := strconv.ParseUint(t0, 10, 64)
+	b, err1 := strconv.ParseUint(t1, 10, 64)
+	if err0 != nil || err1 != nil {
+		throw(form("data_offsets exceeds 64 unsigned bits"))
+	}
+	return a, b
+}
+
+func (p *headerParser) parseHeader() (string, uint64, bool, uint64, uint64) {
+	p.expect('{')
+	topKey := p.parseString()
+	if topKey != "embedding" {
+		throw(formf("unexpected top-level key %q", topKey))
+	}
+	p.expect(':')
+	p.expect('{')
+
+	var dtype string
+	var hasDtype, hasShape, hasOffsets bool
+	var shapeDim uint64
+	var shapeOverflow bool
+	var off0, off1 uint64
+
+	for idx := 0; idx < 3; idx++ {
+		if idx > 0 {
+			p.expect(',')
+		}
+		key := p.parseString()
+		p.expect(':')
+		switch key {
+		case "dtype":
+			if hasDtype {
+				throw(form(`duplicate key "dtype"`))
+			}
+			hasDtype = true
+			dtype = p.parseString()
+		case "shape":
+			if hasShape {
+				throw(form(`duplicate key "shape"`))
+			}
+			hasShape = true
+			shapeDim, shapeOverflow = p.parseShape()
+		case "data_offsets":
+			if hasOffsets {
+				throw(form(`duplicate key "data_offsets"`))
+			}
+			hasOffsets = true
+			off0, off1 = p.parseDataOffsets()
+		default:
+			throw(formf("unexpected tensor key %q", key))
+		}
+	}
+	p.expect('}')
+	p.expect('}')
+	p.skipWS()
+	if p.pos != len(p.s) {
+		throw(form("trailing bytes in SafeTensors JSON header"))
+	}
+	return dtype, shapeDim, shapeOverflow, off0, off1
+}
+
+func parseEmbedding(content string) (Embedding, string) {
+	decoded := decodeStrictBase64(content)
+	if len(decoded) < 8 {
+		throw(form("SafeTensors buffer shorter than 8 bytes"))
+	}
+	headerLenU64 := binary.LittleEndian.Uint64(decoded[:8])
+	remaining := uint64(len(decoded) - 8)
+	if headerLenU64 > maxHeaderBytes || headerLenU64 > remaining {
+		throw(form("SafeTensors header length exceeds 4,096 or buffer"))
+	}
+	headerLen := int(headerLenU64)
+	headerBytes := decoded[8 : 8+headerLen]
+	if !utf8.Valid(headerBytes) {
+		throw(form("SafeTensors header is not valid UTF-8"))
+	}
+	p := headerParser{s: string(headerBytes)}
+	dtypeRaw, shapeDim, shapeOverflow, off0, off1 := p.parseHeader()
+
+	var dtype EmbeddingDtype
+	switch dtypeRaw {
+	case "F16":
+		dtype = DtypeF16
+	case "BF16":
+		dtype = DtypeBF16
+	case "F32":
+		dtype = DtypeF32
+	case "F64":
+		dtype = DtypeF64
+	default:
+		throw(unsup(fmt.Sprintf("unsupported embedding dtype %q", dtypeRaw)))
+	}
+
+	if shapeOverflow {
+		throw(rng("embedding dimension exceeds 64 unsigned bits"))
+	}
+	if shapeDim == 0 || shapeDim > MaxEmbeddingDimension {
+		throw(rng(fmt.Sprintf("embedding dimension %d must be between 1 and %d", shapeDim, MaxEmbeddingDimension)))
+	}
+	dimension := int(shapeDim)
+
+	expectedBytes := dimension * dtype.Width()
+	if off0 != 0 || off1 != uint64(expectedBytes) {
+		throw(formf("data_offsets [%d, %d] does not match [0, %d]", off0, off1, expectedBytes))
+	}
+	payloadStart := 8 + headerLen
+	if len(decoded) != payloadStart+expectedBytes {
+		throw(formf("payload length %d does not match expected %d", len(decoded)-payloadStart, expectedBytes))
+	}
+
+	payload := make([]byte, expectedBytes)
+	copy(payload, decoded[payloadStart:])
+	emb := Embedding{dtype: dtype, dimension: dimension, payload: payload}
+	normal := encodeEmbeddingNormal(dtype, dimension, payload)
+	return emb, normal
 }

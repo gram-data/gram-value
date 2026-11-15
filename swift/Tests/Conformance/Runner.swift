@@ -27,7 +27,7 @@ func loadValue(fromText text: String) throws -> Value {
     return found!
 }
 
-let tagForNative = ["Date": "date", "Time": "time", "DateTime": "datetime", "Duration": "duration", "Point": "point", "UUID": "uuid", "Week": "week"]
+let tagForNative = ["Date": "date", "Time": "time", "DateTime": "datetime", "Duration": "duration", "Point": "point", "UUID": "uuid", "Week": "week", "Embedding": "embedding"]
 
 func nativeTypeName(_ n: Any) -> String {
     switch n {
