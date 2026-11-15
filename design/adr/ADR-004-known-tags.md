@@ -69,7 +69,7 @@ A consumer's stricter rules (a required offset, a fixed set of SRIDs, a latitude
 
 - A tool such as relate-gram can drop its own validators for the shared forms and keep only its profile; relate-gram's ADR-011 section 2.9 says so, and its point form (extended well-known text) differs from this decision's `SRID=n;x y` and needs a follow-up in either direction.
 - Every language implements ten validators (about 800 lines in relate-gram for eight). Parity rests on the conformance corpus's `TagCase`s (ADR-001): at least one accepted and one rejected case per tag and per bound, including leap days, week 53 and fractional seconds.
-- Adding an eleventh known tag turns content that was unknown into possible `invalid-form` errors, so it is a breaking change under ADR-002 2.4's policy for new kinds.
+- Adding an eleventh known tag turns content that was unknown into possible `invalid-form` errors, so it is a breaking change under ADR-002 2.4's policy for new kinds. ADR-008 (proposed) adds that eleventh tag, `embedding`, and a third diagnostic code, `unsupported`; once it is accepted, "ten" and "two codes" in this decision read as eleven and three.
 - A time with no offset is a `time`, not a `localtime`, so two tags have overlapping accepted text; the difference is only that `localtime` forbids an offset. A consumer that distinguishes them gets that from the tag.
 - tree-sitter-gram's well-known-tags document lists three of these tags; it should link here once the specification text exists.
 - Follow-up work: write the forms in `spec/` with examples, add the `TagCase`s, and the diagnostic codes are in the conformance vocabulary (ADR-001 2.5).
