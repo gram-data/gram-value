@@ -44,6 +44,10 @@ SafeTensors supplies the otherwise repeated architectural decisions: an explicit
 offsets; little-endian numbers; packed C-order data; checked buffer boundaries; and no executable object
 serialization. The embedding profile narrows it as follows:
 
+- The header length (the eight-byte prefix) is at most 4,096 and at most the number of bytes that follow the
+  prefix; a larger value is `invalid-form`, and a reader checks it before reading or parsing the header. The
+  normal header is at most 80 bytes, so the cap leaves room for whitespace and padding in other producers' output
+  while stopping a hostile prefix from making a reader allocate or scan a huge buffer.
 - The top-level header has exactly one entry, named `embedding`, and no `__metadata__` entry. Duplicate or
   unknown entries and duplicate JSON keys are errors.
 - The tensor entry has exactly `dtype`, `shape` and `data_offsets`. Accepted inputs may place keys in
@@ -94,7 +98,7 @@ diagnostic in the common result shape:
 
 | Code | Condition |
 |---|---|
-| `invalid-form` | Base64 is malformed, the SafeTensors header or container is malformed, the profile's required entries are wrong or duplicated, the shape is not one-dimensional, or the stated and actual byte lengths disagree |
+| `invalid-form` | Base64 is malformed, the SafeTensors header or container is malformed (including a header length above 4,096 or beyond the buffer), the profile's required entries are wrong or duplicated, the shape is not one-dimensional, or the stated and actual byte lengths disagree |
 | `out-of-range` | The dimension is zero or greater than 1,048,576 (2^20) |
 | `unsupported` | The container is structurally valid but its dtype is outside `F16`, `BF16`, `F32` and `F64` |
 
@@ -160,7 +164,7 @@ payload would be at least 2 MiB), signed zero and non-finite payload bit pattern
 was produced by the reference SafeTensors writer and must equal its own normal content string, and non-normal
 inputs (another key order, no padding, extra padding, whitespace) with their normal content strings. Rejected
 cases cover bad Base64 including non-zero pad bits, missing or extra tensors and metadata, duplicate keys at
-the top level and inside the tensor entry, wrong rank, wrong offsets, trailing or missing payload bytes, and each
+the top level and inside the tensor entry, a header length of 4,097 and one beyond the buffer, wrong rank, wrong offsets, trailing or missing payload bytes, and each
 unsupported dtype. `out-of-range` cases are dimension zero, dimension 1,048,577 with a short buffer (the
 range check precedes the length check, 2.4), and, as an `invalid-form` contrast, dimension 1,048,576 with a
 short buffer. Every language runs the same cases; native mapping cases record
