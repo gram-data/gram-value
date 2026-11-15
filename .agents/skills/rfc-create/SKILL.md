@@ -44,16 +44,31 @@ Cross-references are navigation, never load-bearing: every sentence must still p
 ## Outline
 
 1. **Require a non-main branch before making any changes**:
-   - Run `git branch --show-current` (skip this whole check silently if not inside a git
-     repository).
+   - Run `git branch --show-current` and `git status --porcelain` (skip this whole check silently
+     if not inside a git repository).
    - Determine the repository's main branch: prefer the short name from
      `git symbolic-ref refs/remotes/origin/HEAD`; fall back to `main` if that's unavailable.
-   - If the current branch **is** the main branch, **STOP** — do not create or edit any file.
-     Tell the user: RFCs should be authored on a feature branch, not directly on the main
-     branch, so this design work goes through the same PR-based review as everything else. Ask
-     them to create/switch to a branch (e.g. `git checkout -b <short-descriptive-name>`) and
-     re-invoke `/rfc-create`.
-   - Otherwise, proceed — this applies to both create and update.
+   - If the current branch **is not** the main branch, proceed — this applies to both create and
+     update.
+   - If the current branch **is** the main branch and the worktree is **clean**, create and switch
+     to a feature branch automatically, then continue on it. Derive a short, descriptive,
+     kebab-case name from the user's request (2-4 words, prefixed `rfc-`, for example
+     `rfc-vector-embeddings` or `rfc-host-language-mappings`); avoid dates, ticket numbers and
+     generic names such as `design` or `changes`. Report the branch that was created. The RFC
+     work then goes through the same PR-based review as everything else without asking the user
+     to do the branch bookkeeping by hand.
+   - If the current branch **is** the main branch and the worktree is **dirty** (any staged,
+     unstaged or untracked output from `git status --porcelain`), **STOP** — do not create,
+     switch or edit anything, because creating an RFC here could mix unrelated work into the new
+     branch or leave it behind on the main branch. Tell the user the main branch has uncommitted
+     work and ask how to proceed, offering:
+     1. Stash the work, create the RFC branch, and reapply it there (the usual choice when the
+        changes belong with the RFC work or are simply in progress).
+     2. Commit or otherwise settle the existing work on the main branch first, then re-invoke
+        `/rfc-create`.
+     3. Create the RFC branch anyway and carry the dirty work with it, if the user confirms the
+        changes belong in the RFC's PR.
+     Whichever they choose, continue only after their answer; never discard work.
 
 2. **Determine create vs. update**:
    - Scan `$ARGUMENTS` for an `RFC-<N>` reference (bare like `RFC-3`, zero-padded like `RFC-003`, a bare filename, or an `@design/rfc/RFC-003-*.md` path).
