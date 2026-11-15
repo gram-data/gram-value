@@ -16,17 +16,20 @@ bit-packed vector stores several logical dimensions in one byte. A gram array re
 so using one as the carrier would widen every element to the model's 64-bit `decimal` and lose the producer's
 representation. The carrier must instead record the vector's element type and dimension with its bytes.
 
-RFC-004 chooses a tagged string and deliberately excludes readability and element-wise editing from the
-requirements. The remaining decisions are the tag's name, how a binary tensor fits in a string, which tensor
-format to adopt, which of that format's features constitute an embedding, how interpretation reports errors,
-and what each native package returns. The typed result must preserve the payload without requiring every host
-language to have a native half-precision tensor type.
+A tagged string (a tag naming a type, then text content: ``date`2024-01-15` ``) is gram's existing extension
+point, and a consumer that does not know a tag passes the value through unchanged. An embedding is machine
+output that is read and written whole, so the carrier does not need to be readable or editable element by
+element. What it does need is a rule for fitting a binary tensor into text, a tensor format that states dtype
+and shape, a profile of that format that says which of its features are an embedding, diagnostics for bad
+content, and a typed result that preserves the payload without requiring every host language to have a native
+half-precision tensor type.
 
 ## 2. Decision
 
 ### 2.1 The tag is `embedding`
 
-The known tag is exactly `embedding`, in lower case. It denotes one rank-one tensor. The name does not
+The known tag (a tag whose content form this project defines and whose interpretation each package offers) is
+exactly `embedding`, in lower case. It denotes one rank-one tensor. The name does not
 promise a producer, model, metric or normalization, and it is not widened to matrices or general tensors.
 The existing convenience dispatch adds `embedding`; any other tag remains unknown.
 
@@ -37,8 +40,11 @@ content. The content has no human-readable vector form.
 
 The content uses standard RFC 4648 Base64 with `+`, `/` and required `=` padding, without spaces or line
 breaks; non-canonical unused pad bits (RFC 4648 §3.5) are `invalid-form`. Empty content is invalid.
-Decoding yields one buffer in the SafeTensors format: an eight-byte
-unsigned little-endian header length, a UTF-8 JSON header, and a contiguous tensor byte buffer.
+Content that would decode to more than 8,392,712 bytes (8 + 4,096 + 8 × 2^20, the largest legal buffer;
+Base64 content longer than 11,190,284 characters) is `out-of-range`, decided from the length alone, before
+any allocation. Decoding otherwise yields one buffer in the SafeTensors format (the tensor file format of
+Hugging Face's `safetensors` project): an eight-byte unsigned little-endian header length, a UTF-8 JSON header,
+and a contiguous tensor byte buffer.
 
 SafeTensors supplies the otherwise repeated architectural decisions: an explicit dtype, shape and data
 offsets; little-endian numbers; packed C-order data; checked buffer boundaries; and no executable object
@@ -52,8 +58,14 @@ serialization. The embedding profile narrows it as follows:
   unknown entries and duplicate JSON keys are errors.
 - The tensor entry has exactly `dtype`, `shape` and `data_offsets`. Accepted inputs may place keys in
   either JSON object in any order; the normal form fixes the order below.
-- `shape` is `[n]`, where `n` is a positive integer. An empty vector and every other rank are not embeddings
-  under this tag.
+- `shape` is `[n]`, where `n` is a positive integer. `[0]` is `out-of-range`; `[]` and every other rank are
+  `invalid-form`.
+- Numbers in `shape` and `data_offsets` are plain base-10 integers: digits only, with no sign, fraction or
+  exponent, and no leading zero except `0` itself. Any other spelling (`2.0`, `1e1`, `02`) is `invalid-form`.
+  An integer too large for 64 unsigned bits is `out-of-range` in `shape` and `invalid-form` in
+  `data_offsets`. `dtype` is a JSON string, compared exactly (case-sensitively) after JSON unescaping. The
+  header's only whitespace is JSON's four whitespace characters (space, tab, line feed, carriage return) between
+  tokens, and the header must be valid UTF-8.
 - `data_offsets` is `[0, b]`, relative to the tensor byte buffer, and `b` is exactly the byte length implied
   by the dimension and dtype. The decoded buffer ends immediately after those `b` bytes: no prefix, suffix,
   gaps or shared tensor data are accepted.
@@ -94,18 +106,18 @@ embedding is an opaque tensor, not a sequence of gram `decimal` values, so the d
 ### 2.4 Interpretation returns a typed value or diagnostics
 
 Each package has one `embedding` interpretation function. It returns no typed value on failure, with one
-diagnostic in the common result shape:
+diagnostic (a code, a message and a path, as in ADR-005's result shape):
 
 | Code | Condition |
 |---|---|
 | `invalid-form` | Base64 is malformed, the SafeTensors header or container is malformed (including a header length above 4,096 or beyond the buffer), the profile's required entries are wrong or duplicated, the shape is not one-dimensional, or the stated and actual byte lengths disagree |
-| `out-of-range` | The dimension is zero or greater than 1,048,576 (2^20) |
-| `unsupported` | The container is structurally valid but its dtype is outside `F16`, `BF16`, `F32` and `F64` |
+| `out-of-range` | The content would decode to more than 8,392,712 bytes, or the dimension is zero, greater than 1,048,576 (2^20) or beyond 64 unsigned bits |
+| `unsupported` | The container is structurally valid but its dtype string is not exactly `F16`, `BF16`, `F32` or `F64` (so `f32` is unsupported) |
 
 The maximum dimension is fixed for every package, so that parity does not depend on a platform's memory or
 integer width. It is far above the dimensions of current embedding models, and at the widest dtype it bounds a
-payload to 8 MiB. Checks run in this order: Base64, the SafeTensors container and profile entries, the dtype,
-the dimension range, and last the stated and actual byte lengths. A dimension above the maximum is therefore
+payload to 8 MiB. Checks run in this order: Base64 syntax, the decoded-size bound, the SafeTensors container
+and profile entries, the dtype, the dimension range, and last the stated and actual byte lengths. A dimension above the maximum is therefore
 `out-of-range` whatever the buffer length, which lets the corpus test the bound with a small buffer.
 
 `unsupported` extends ADR-004's two-code diagnostic set (`invalid-form` and `out-of-range`) for tags whose
@@ -159,16 +171,11 @@ small and its shape is fixed, so each package checks duplicates with a strict pa
 
 ### 2.7 The conformance corpus tests the profile
 
-Accepted cases cover all four dtypes, the minimum dimension (the maximum is not accepted-tested, since its
-payload would be at least 2 MiB), signed zero and non-finite payload bit patterns, a case whose content
-was produced by the reference SafeTensors writer and must equal its own normal content string, and non-normal
-inputs (another key order, no padding, extra padding, whitespace) with their normal content strings. Rejected
-cases cover bad Base64 including non-zero pad bits, missing or extra tensors and metadata, duplicate keys at
-the top level and inside the tensor entry, a header length of 4,097 and one beyond the buffer, wrong rank, wrong offsets, trailing or missing payload bytes, and each
-unsupported dtype. `out-of-range` cases are dimension zero, dimension 1,048,577 with a short buffer (the
-range check precedes the length check, 2.4), and, as an `invalid-form` contrast, dimension 1,048,576 with a
-short buffer. Every language runs the same cases; native mapping cases record
-`Embedding`/`GramEmbedding` as exact in both directions.
+The corpus (`conformance/tags.gram`, `conformance/mappings.gram`) holds accepted cases for every rule in 2.2 and
+2.3, including output of the reference writer and non-normal inputs with their normal content strings, and a
+rejected case for every `invalid-form`, `out-of-range` and `unsupported` condition above, at each boundary. Which
+cases exist so far is recorded in `conformance/README.md`. Every language runs the same cases; native mapping
+cases record `Embedding`/`GramEmbedding` as exact in both directions.
 
 ## 3. Alternatives Considered
 
@@ -198,13 +205,18 @@ transported exactly; a consumer doing arithmetic remains responsible for its num
 3.8. **Base64url without padding.** Rejected as an additional accepted spelling: standard padded Base64 gives
 one canonical string and is available in every target standard library.
 
+3.9. **One tag per dtype (`embedding32`, `embedding16`, ...) with raw Base64 bytes.** Rejected: it needs no
+container and states the dtype, but the dimension is only implied by the byte count, so a payload truncated by
+a whole number of elements cannot be detected. The set of known tags would also grow with every new encoding,
+each a breaking change for unknown-tag consumers.
+
 ## 4. Consequences
 
 - Known-tag dispatch and the specification grow from ten to eleven tags. Existing ``embedding`...` `` values
   that consumers previously treated as unknown can now fail known-tag interpretation, which is a breaking
   change under the known-tag version policy.
-- Base64 expands the payload by about one third, and the SafeTensors header adds a small fixed overhead. That
-  is the cost of keeping the value inside gram text without pretending its elements are editable numbers.
+- Base64 expands the payload by one third, and the SafeTensors prefix and header add about 80 bytes. A
+  1,536-dimension `F32` embedding is about 8.3 KB of text.
 - All five packages need a small binary reader, a canonical writer and the byte-buffer typed value. No ML
   dependency is needed. The profile rejects some otherwise valid SafeTensors files by design.
 - Non-normal accepted content compares differently as a tagged value after conversion through the typed

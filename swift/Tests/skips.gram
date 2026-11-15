@@ -4,3 +4,8 @@
 (skip-embedding-1:Skip {case: tag-embedding-ref-f32, reason: "the embedding tag (ADR-008) is not implemented yet"})
 (skip-embedding-2:Skip {case: tag-embedding-ref-f64, reason: "the embedding tag (ADR-008) is not implemented yet"})
 (skip-embedding-3:Skip {case: tag-embedding-ref-f16, reason: "the embedding tag (ADR-008) is not implemented yet"})
+(skip-embedding-4:Skip {case: tag-embedding-shape-float, reason: "the embedding tag (ADR-008) is not implemented yet"})
+(skip-embedding-5:Skip {case: tag-embedding-shape-exponent, reason: "the embedding tag (ADR-008) is not implemented yet"})
+(skip-embedding-6:Skip {case: tag-embedding-shape-leading-zero, reason: "the embedding tag (ADR-008) is not implemented yet"})
+(skip-embedding-7:Skip {case: tag-embedding-dtype-case, reason: "the embedding tag (ADR-008) is not implemented yet"})
+(skip-embedding-8:Skip {case: tag-embedding-shape-huge, reason: "the embedding tag (ADR-008) is not implemented yet"})
