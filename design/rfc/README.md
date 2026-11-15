@@ -66,4 +66,4 @@ Use `/rfc-review` before moving a draft to `review`/`accepted`.
 | [RFC-001](RFC-001-gram-value-model.md) | A Shared Model of Gram's Data Values | accepted | ADR-002, ADR-003, ADR-004, ADR-005 |
 | [RFC-002](RFC-002-host-language-mappings.md) | Host-Language Mappings and Loss Reporting | accepted | ADR-001, ADR-006 |
 | [RFC-003](RFC-003-parity-conformance-packaging.md) | Parity, Conformance and Packaging Across Languages | review | ADR-001, ADR-005, ADR-007 |
-| [RFC-004](RFC-004-vector-embeddings.md) | Vector Embeddings as Opaque Typed Tensors | draft | ADR-008 |
+| [RFC-004](RFC-004-vector-embeddings.md) | Vector Embeddings as Opaque Typed Tensors | accepted | ADR-008 |

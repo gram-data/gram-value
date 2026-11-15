@@ -1,7 +1,7 @@
 ---
 id: RFC-004
 title: Vector Embeddings as Opaque Typed Tensors
-status: draft
+status: accepted
 created: 2026-11-15
 adrs: [ADR-008]
 ---

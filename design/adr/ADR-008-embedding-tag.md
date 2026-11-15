@@ -1,7 +1,7 @@
 ---
 id: ADR-008
 title: The embedding Tag as Base64-Encoded SafeTensors
-status: proposed
+status: accepted
 rfcs: [RFC-004]
 created: 2026-11-15
 ---
